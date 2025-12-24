@@ -182,6 +182,16 @@
             color: #666;
             font-size: 0.9rem;
         }
+
+        .time-line {
+            margin-top: 4px;
+            margin-bottom: 6px;
+        }
+
+        .time-range {
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
         
         .booking-actions {
             display: flex;
@@ -522,11 +532,13 @@
                 let html = '';
                 sortedDates.forEach(dateKey => {
                     const dayBookings = bookingsByDate[dateKey];
+                    // Sort bookings within the day by start time (earliest first)
+                    dayBookings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
                     const isExpanded = expandedDays.includes(dateKey);
                     html += `
                         <div class="day-group">
                             <div class="day-header" onclick="toggleDay('${dateKey}')">
-                                <h3>📅 ${dateKey}</h3>
+                                <h3>${dateKey}</h3>
                                 <span class="count">${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}</span>
                             </div>
                             <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="day-${dateKey}">
@@ -651,7 +663,7 @@
                         <div class="booking-info">
                             <h3>${booking.name}</h3>
                             <p>📞 ${booking.phone}</p>
-                            <p>🕐 ${startTime} - ${endTime}</p>
+                            <p class="time-line">🕐 <span class="time-range">${startTime} - ${endTime}</span></p>
                             <p>🏄 ${booking.numberOfBoards} Board${booking.numberOfBoards !== 1 ? 's' : ''}</p>
                             <p>💰 ${parseFloat(booking.price).toFixed(2)}€</p>
                             <p>💳 ${booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung'}</p>
@@ -686,11 +698,10 @@
                     await loadBookings(true); // Force update
                     await loadStatistics(currentPeriod, false); // Update stats silently
                 } else {
-                    alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+                    console.error('Fehler bei der Bestätigung:', data.error || 'Unbekannter Fehler');
                 }
             } catch (error) {
                 console.error('Error verifying payment:', error);
-                alert('Fehler bei der Bestätigung.');
             }
         }
         
@@ -713,7 +724,7 @@
                     // Force update to immediately reflect changes
                     await loadBookings(true); // Force update
                     
-                    // Show success feedback
+                    // Show success feedback (ohne Popup)
                     const button = event.target;
                     const originalText = button.textContent;
                     button.textContent = '✓ Gespeichert!';
@@ -723,11 +734,10 @@
                         button.style.background = '#007bff';
                     }, 2000);
                 } else {
-                    alert('Fehler beim Speichern der Notizen');
+                    console.error('Fehler beim Speichern der Notizen:', data.error || 'Unbekannter Fehler');
                 }
             } catch (error) {
                 console.error('Error saving notes:', error);
-                alert('Fehler beim Speichern der Notizen');
             }
         }
         
