@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     paypal_amount DECIMAL(10, 2),
     payment_verified BOOLEAN DEFAULT FALSE,
     verified_at TIMESTAMP,
+    notes TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -74,6 +74,7 @@ async function readBookings() {
         paypal_amount as "paypalAmount",
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
+        notes,
         created_at as "createdAt"
       FROM bookings
       ORDER BY created_at DESC
@@ -106,8 +107,8 @@ async function saveBooking(booking) {
         id, name, phone, number_of_boards, start_time, end_time,
         duration_hours, duration_minutes, price, price_per_board,
         is_day_rate, payment_method, status, paypal_link, paypal_amount,
-        payment_verified, verified_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        payment_verified, verified_at, notes, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     `, [
       booking.id,
       booking.name,
@@ -126,6 +127,7 @@ async function saveBooking(booking) {
       booking.paypalAmount || null,
       booking.paymentVerified || false,
       booking.verifiedAt || null,
+      booking.notes || null,
       booking.createdAt
     ]);
   } else {
@@ -155,6 +157,10 @@ async function updateBooking(bookingId, updates) {
     if (updates.verifiedAt !== undefined) {
       setClause.push(`verified_at = $${paramIndex++}`);
       values.push(updates.verifiedAt);
+    }
+    if (updates.notes !== undefined) {
+      setClause.push(`notes = $${paramIndex++}`);
+      values.push(updates.notes);
     }
     
     values.push(bookingId);
@@ -198,6 +204,7 @@ async function findBookingById(bookingId) {
         paypal_amount as "paypalAmount",
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
+        notes,
         created_at as "createdAt"
       FROM bookings
       WHERE id = $1

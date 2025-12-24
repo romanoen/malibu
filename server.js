@@ -14,6 +14,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
+// Simple session storage (in production, use proper session store)
+const sessions = new Map();
+
 // Initialize database on startup
 let dbInitialized = false;
 async function initializeApp() {
@@ -165,6 +168,7 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
+// Public bookings endpoint (for normal booking page - not used currently)
 app.get('/api/bookings', async (req, res) => {
   try {
     const bookings = await db.readBookings();
@@ -175,8 +179,91 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Verify PayPal payment (manual verification)
-app.post('/api/bookings/:id/verify', async (req, res) => {
+// Admin bookings endpoint (protected)
+app.get('/api/admin/bookings', checkAdminSession, async (req, res) => {
+  try {
+    const bookings = await db.readBookings();
+    res.json(bookings);
+  } catch (error) {
+    console.error('Error fetching bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// Admin login
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    
+    if (password === adminPassword) {
+      const sessionId = Date.now().toString() + Math.random().toString(36);
+      sessions.set(sessionId, { loggedIn: true, expires: Date.now() + 24 * 60 * 60 * 1000 }); // 24 hours
+      res.json({ success: true, sessionId });
+    } else {
+      res.status(401).json({ error: 'Falsches Passwort' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: 'Login fehlgeschlagen' });
+  }
+});
+
+// Check admin session
+function checkAdminSession(req, res, next) {
+  const sessionId = req.headers['x-session-id'];
+  const session = sessions.get(sessionId);
+  
+  if (session && session.loggedIn && session.expires > Date.now()) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Nicht autorisiert' });
+  }
+}
+
+// Get statistics
+app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
+  try {
+    const { period } = req.query; // 'week', 'month', 'year'
+    const bookings = await db.readBookings();
+    
+    const now = new Date();
+    let startDate = new Date();
+    
+    switch (period) {
+      case 'week':
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'year':
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate = new Date(0); // All time
+    }
+    
+    const filteredBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.createdAt);
+      return bookingDate >= startDate && b.status === 'confirmed';
+    });
+    
+    const totalRevenue = filteredBookings.reduce((sum, b) => sum + parseFloat(b.price || 0), 0);
+    const totalBookings = filteredBookings.length;
+    
+    res.json({
+      totalRevenue: totalRevenue.toFixed(2),
+      totalBookings,
+      period
+    });
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+    res.status(500).json({ error: 'Fehler beim Laden der Statistiken' });
+  }
+});
+
+// Verify payment (PayPal or Cash)
+app.post('/api/bookings/:id/verify', checkAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
     const booking = await db.findBookingById(id);
@@ -185,21 +272,32 @@ app.post('/api/bookings/:id/verify', async (req, res) => {
       return res.status(404).json({ error: 'Buchung nicht gefunden' });
     }
     
-    if (booking.paymentMethod === 'paypal') {
-      await db.updateBooking(id, {
-        status: 'confirmed',
-        paymentVerified: true,
-        verifiedAt: new Date().toISOString()
-      });
-      
-      const updatedBooking = await db.findBookingById(id);
-      res.json({ success: true, booking: updatedBooking });
-    } else {
-      res.status(400).json({ error: 'Nur PayPal-Zahlungen können verifiziert werden' });
-    }
+    await db.updateBooking(id, {
+      status: 'confirmed',
+      paymentVerified: true,
+      verifiedAt: new Date().toISOString()
+    });
+    
+    const updatedBooking = await db.findBookingById(id);
+    res.json({ success: true, booking: updatedBooking });
   } catch (error) {
     console.error('Error verifying payment:', error);
     res.status(500).json({ error: 'Failed to verify payment' });
+  }
+});
+
+// Update booking notes
+app.post('/api/bookings/:id/notes', checkAdminSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+    
+    await db.updateBooking(id, { notes });
+    const updatedBooking = await db.findBookingById(id);
+    res.json({ success: true, booking: updatedBooking });
+  } catch (error) {
+    console.error('Error updating notes:', error);
+    res.status(500).json({ error: 'Fehler beim Speichern der Notizen' });
   }
 });
 
