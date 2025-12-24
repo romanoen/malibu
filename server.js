@@ -36,35 +36,40 @@ function calculatePrice(duration, numberOfBoards) {
   const minutes = duration.minutes || 0;
   const totalMinutes = hours * 60 + minutes;
   
-  // Day rate: 50€ per board
-  const dayRate = 50;
+  // Kleingruppen-Special: 4 Boards für 90 Minuten = 50€
+  if (numberOfBoards === 4 && totalMinutes <= 90) {
+    return {
+      price: 50,
+      isDayRate: false,
+      pricePerBoard: 12.5,
+      isGroupSpecial: true
+    };
+  }
   
-  // Day rate: 50€
+  // Day rate: 50€ per board (24 hours or more)
   if (totalMinutes >= 24 * 60) {
     return {
-      price: dayRate * numberOfBoards,
+      price: 50 * numberOfBoards,
       isDayRate: true,
-      pricePerBoard: dayRate
+      pricePerBoard: 50
     };
   }
   
-  // First hour: 15€
-  let pricePerBoard = 15;
-  let remainingMinutes = totalMinutes - 60;
+  // Price tiers per board:
+  let pricePerBoard;
   
-  // Additional 15-minute intervals: 5€ each (every 15 minutes = 5€)
-  if (remainingMinutes > 0) {
-    const additionalIntervals = Math.ceil(remainingMinutes / 15);
-    pricePerBoard += additionalIntervals * 5;
-  }
-  
-  // If price per board exceeds day rate, use day rate instead
-  if (pricePerBoard > dayRate) {
-    return {
-      price: dayRate * numberOfBoards,
-      isDayRate: true,
-      pricePerBoard: dayRate
-    };
+  if (totalMinutes <= 90) {
+    // 90 Minuten: 15€
+    pricePerBoard = 15;
+  } else if (totalMinutes <= 120) {
+    // 2 Stunden: 20€
+    pricePerBoard = 20;
+  } else if (totalMinutes <= 180) {
+    // Bis 3 Stunden: 30€
+    pricePerBoard = 30;
+  } else {
+    // Über 3 Stunden aber unter 24 Stunden: 30€ (bleibt bei 30€)
+    pricePerBoard = 30;
   }
   
   return {

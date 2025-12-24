@@ -106,10 +106,10 @@ async function calculatePrice() {
         if (data.price !== undefined) {
             totalPriceDisplay.textContent = `${data.price.toFixed(2)} €`;
             
-            // Show day rate message if applicable
-            if (data.isDayRate && data.pricePerBoard === 50) {
+            // Show day rate message only for 24h+ bookings
+            if (data.isDayRate) {
                 const dayRateDetails = document.getElementById('dayRateDetails');
-                dayRateDetails.textContent = `Da der Betrag pro Brett über 50€ liegt, wurde automatisch die Tagesmiete (50€ pro Brett) aktiviert.`;
+                dayRateDetails.textContent = `Tagesmiete (24h) wurde aktiviert.`;
                 dayRateMessage.classList.remove('hidden');
             } else {
                 dayRateMessage.classList.add('hidden');
