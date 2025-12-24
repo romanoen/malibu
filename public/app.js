@@ -121,42 +121,60 @@ async function calculatePrice() {
 }
 
 // Form submission
+let isSubmitting = false;
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    
+    // Prevent double submission
+    if (isSubmitting) {
+        return;
+    }
     
     const formData = new FormData(form);
     const paymentMethod = formData.get('paymentMethod');
     const privacyCheck = document.getElementById('privacyCheck').checked;
     const safetyCheck = document.getElementById('safetyCheck').checked;
     
-    // Validate checkboxes
+    // Early validation before disabling button
     if (!privacyCheck || !safetyCheck) {
         showErrorMessage('Bitte akzeptiere die Datenschutzerklärung und bestätige, dass du den Leitfaden gelesen hast.');
         return;
     }
+    
+    // Get date and times for validation
+    const bookingDate = formData.get('bookingDate');
+    const startTime = formData.get('startTime');
+    const endTime = formData.get('endTime');
+    
+    if (!bookingDate || !startTime || !endTime) {
+        showErrorMessage('Bitte fülle alle Felder aus.');
+        return;
+    }
+    
+    // Set submitting flag
+    isSubmitting = true;
     
     // Hide previous messages
     successMessage.classList.add('hidden');
     errorMessage.classList.add('hidden');
     dayRateMessage.classList.add('hidden');
     
-    // Disable submit button
+    // Disable submit button immediately
     submitBtn.disabled = true;
     submitBtn.textContent = 'Wird verarbeitet...';
+    submitBtn.style.opacity = '0.6';
+    submitBtn.style.cursor = 'not-allowed';
     
     try {
-        // Get date and times
-        const bookingDate = formData.get('bookingDate');
-        const startTime = formData.get('startTime');
-        const endTime = formData.get('endTime');
-        
         const startDateTime = `${bookingDate}T${startTime}:00`;
         const endDateTime = `${bookingDate}T${endTime}:00`;
         
         const bookingData = {
             name: formData.get('name'),
             phone: formData.get('phone'),
-            numberOfBoards: parseInt(formData.get('numberOfBoards')),
+            numberOfBoards: parseInt(formData.get('numberOfBoards')) || 1,
             startTime: startDateTime,
             endTime: endDateTime,
             paymentMethod: paymentMethod
@@ -188,21 +206,18 @@ form.addEventListener('submit', async (e) => {
                     if (!paypalUrl.startsWith('http://') && !paypalUrl.startsWith('https://')) {
                         paypalUrl = 'https://' + paypalUrl;
                     }
-                    // Add amount to the link
-                    paypalUrl = `${paypalUrl}/${data.booking.paypalAmount}EUR`;
+                    // Format amount for PayPal.me (remove .00 if whole number)
+                    const amount = parseFloat(data.booking.paypalAmount);
+                    const formattedAmount = amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
+                    // Add amount to the link (PayPal.me format: /amount)
+                    paypalUrl = `${paypalUrl}/${formattedAmount}`;
                 }
                 
-                // Open PayPal in new window/tab
-                const paypalWindow = window.open(paypalUrl, '_blank');
+                // Try to open PayPal in new window/tab
+                window.open(paypalUrl, '_blank');
                 
-                // If popup was blocked, show the link in the message
-                if (!paypalWindow || paypalWindow.closed || typeof paypalWindow.closed == 'undefined') {
-                    // Popup was blocked, show link in message
-                    alert(`Bitte öffne diesen Link manuell: ${paypalUrl}`);
-                }
-                
-                // Show message that payment needs to be verified
-                showSuccessMessage(data.booking, 'paypal', true);
+                // Show message with PayPal button
+                showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
             } else {
                 showSuccessMessage(data.booking, 'paypal', true);
             }
@@ -213,26 +228,50 @@ form.addEventListener('submit', async (e) => {
     } catch (error) {
         console.error('Booking error:', error);
         showErrorMessage(error.message || 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.');
-    } finally {
+        // Re-enable button on error
         submitBtn.disabled = false;
         submitBtn.textContent = 'Buchung abschließen';
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+        isSubmitting = false;
+    } finally {
+        // Only reset if not showing success (success message handles reset)
+        if (successMessage.classList.contains('hidden')) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Buchung abschließen';
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+            isSubmitting = false;
+        }
     }
 });
 
 
 // Show success message
-function showSuccessMessage(booking, paymentMethod, needsVerification = false) {
+function showSuccessMessage(booking, paymentMethod, needsVerification = false, paypalUrl = null) {
     let details = '';
+    const paypalButton = document.getElementById('paypalLinkButton');
+    
     if (paymentMethod === 'cash') {
         details = `Deine Buchung wurde erstellt! Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen bereitgestellten Umschlag, beschrifte diesen mit deinem Buchungsnamen (${booking.name || 'deinem Namen'}) und lege ihn in den markierten Briefkasten.`;
+        paypalButton.style.display = 'none';
     } else if (paymentMethod === 'paypal') {
         if (needsVerification) {
-            details = `Deine Buchung wurde erstellt, ist aber noch nicht bestätigt! Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€). Das PayPal-Fenster sollte sich bereits geöffnet haben. Die Buchung wird nach erfolgreicher Zahlungsverifizierung bestätigt.`;
+            details = `Deine Buchung wurde erstellt, ist aber noch nicht bestätigt! Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€). `;
         } else {
-            details = `Deine Buchung wurde erfolgreich abgeschlossen! PayPal-Zahlung: ${booking.price.toFixed(2)}€`;
+            details = `Deine Buchung wurde erfolgreich abgeschlossen! PayPal-Zahlung: ${booking.price.toFixed(2)}€. `;
+        }
+        
+        // Show PayPal button if URL is provided
+        if (paypalUrl) {
+            paypalButton.href = paypalUrl;
+            paypalButton.style.display = 'inline-block';
+        } else {
+            paypalButton.style.display = 'none';
         }
     } else {
         details = `Deine Buchung wurde erfolgreich abgeschlossen! Zahlung erhalten: ${booking.price.toFixed(2)}€`;
+        paypalButton.style.display = 'none';
     }
     
     document.getElementById('successDetails').textContent = details;
@@ -240,6 +279,13 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false) {
     form.reset();
     totalPriceDisplay.textContent = '0,00 €';
     dayRateMessage.classList.add('hidden');
+    
+    // Reset submit button
+    isSubmitting = false;
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Buchung abschließen';
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
     
     // Scroll to success message
     successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
