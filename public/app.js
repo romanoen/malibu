@@ -213,11 +213,14 @@ form.addEventListener('submit', async (e) => {
                     paypalUrl = `${paypalUrl}/${formattedAmount}`;
                 }
                 
-                // Try to open PayPal in new window/tab
-                window.open(paypalUrl, '_blank');
-                
-                // Show message with PayPal button
+                // Show message first with PayPal button
                 showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
+                
+                // Try to open PayPal immediately - open in new tab/window
+                // Use setTimeout to ensure it's treated as user-initiated after async operation
+                setTimeout(() => {
+                    window.open(paypalUrl, '_blank');
+                }, 0);
             } else {
                 showSuccessMessage(data.booking, 'paypal', true);
             }
@@ -266,8 +269,16 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false, p
         if (paypalUrl) {
             paypalButton.href = paypalUrl;
             paypalButton.style.display = 'inline-block';
+            paypalButton.classList.remove('hidden');
+            // Ensure button is clickable
+            paypalButton.onclick = function(e) {
+                e.preventDefault();
+                window.open(paypalUrl, '_blank');
+                return false;
+            };
         } else {
             paypalButton.style.display = 'none';
+            paypalButton.classList.add('hidden');
         }
     } else {
         details = `Deine Buchung wurde erfolgreich abgeschlossen! Zahlung erhalten: ${booking.price.toFixed(2)}€`;
