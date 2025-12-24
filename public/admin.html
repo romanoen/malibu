@@ -507,19 +507,24 @@
                 
                 // Group bookings by date
                 const bookingsByDate = {};
+                const dateMap = {}; // Map formatted date string to actual date for sorting
+                
                 bookings.forEach(booking => {
                     const date = new Date(booking.startTime);
+                    // Get date at midnight for consistent grouping
+                    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
                     const dateKey = date.toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' });
                     
                     if (!bookingsByDate[dateKey]) {
                         bookingsByDate[dateKey] = [];
+                        dateMap[dateKey] = dateOnly; // Store actual date for sorting
                     }
                     bookingsByDate[dateKey].push(booking);
                 });
                 
-                // Sort dates
+                // Sort dates by actual date (newest first)
                 const sortedDates = Object.keys(bookingsByDate).sort((a, b) => {
-                    return new Date(b.split('.').reverse().join('-')) - new Date(a.split('.').reverse().join('-'));
+                    return dateMap[b] - dateMap[a]; // Descending order (newest first)
                 });
                 
                 // Only skip update if we've loaded before and nothing changed
