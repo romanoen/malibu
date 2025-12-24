@@ -672,10 +672,6 @@
         }
         
         async function verifyPayment(bookingId) {
-            if (!confirm('Möchtest du diese Zahlung wirklich als bestätigt markieren?')) {
-                return;
-            }
-            
             try {
                 const response = await fetch(`/api/bookings/${bookingId}/verify`, {
                     method: 'POST',
@@ -685,8 +681,10 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    loadBookings();
-                    loadStatistics(currentPeriod);
+                    // Force update to immediately reflect changes
+                    lastBookingId = null; // Reset to force update
+                    await loadBookings(true); // Force update
+                    await loadStatistics(currentPeriod, false); // Update stats silently
                 } else {
                     alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
                 }
@@ -712,7 +710,18 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    loadBookings();
+                    // Force update to immediately reflect changes
+                    await loadBookings(true); // Force update
+                    
+                    // Show success feedback
+                    const button = event.target;
+                    const originalText = button.textContent;
+                    button.textContent = '✓ Gespeichert!';
+                    button.style.background = '#28a745';
+                    setTimeout(() => {
+                        button.textContent = originalText;
+                        button.style.background = '#007bff';
+                    }, 2000);
                 } else {
                     alert('Fehler beim Speichern der Notizen');
                 }
