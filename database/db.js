@@ -25,6 +25,9 @@ async function initDatabase() {
       
       // Create tables if they don't exist
       await createTables();
+      
+      // Ensure notes column exists (run after table creation)
+      await ensureNotesColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       throw error;
@@ -49,6 +52,32 @@ async function createTables() {
   } catch (error) {
     console.error('❌ Error creating tables:', error.message);
     throw error;
+  }
+}
+
+// Ensure notes column exists (for existing databases)
+async function ensureNotesColumn() {
+  if (!usePostgreSQL) return;
+  
+  try {
+    const checkColumn = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='bookings' AND column_name='notes'
+    `);
+    
+    if (checkColumn.rows.length === 0) {
+      await pool.query('ALTER TABLE bookings ADD COLUMN notes TEXT');
+      console.log('✅ Added notes column to existing bookings table');
+    }
+  } catch (error) {
+    // Try alternative method
+    try {
+      await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes TEXT');
+      console.log('✅ Notes column verified');
+    } catch (err) {
+      console.error('⚠️  Could not add notes column (may already exist):', err.message);
+    }
   }
 }
 
