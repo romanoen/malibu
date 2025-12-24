@@ -343,6 +343,7 @@
         let lastBookingCount = 0;
         let lastBookingId = null;
         let isPolling = false;
+        let hasLoadedOnce = false;
         
         // Check if already logged in
         const savedSession = localStorage.getItem('adminSessionId');
@@ -498,12 +499,12 @@
                     (newestBookingId && newestBookingId !== lastBookingId)
                 );
                 
-                // Update tracking
-                lastBookingCount = currentBookingCount;
-                lastBookingId = newestBookingId;
-                
                 if (bookings.length === 0) {
                     document.getElementById('bookingsList').innerHTML = '<p>Keine Buchungen vorhanden.</p>';
+                    // Update tracking even if no bookings
+                    lastBookingCount = 0;
+                    lastBookingId = null;
+                    hasLoadedOnce = true;
                     return;
                 }
                 
@@ -529,11 +530,17 @@
                     return dateMap[b] - dateMap[a]; // Descending order (newest first)
                 });
                 
-                // Only skip update if we've loaded before and nothing changed
-                if (!hasNewBookings && !forceUpdate && lastBookingId !== null) {
-                    // Don't update if nothing changed (but always update on first load)
+                // Only skip rendering during polling if nothing changed (but always render on first load or force update)
+                const shouldSkipRender = !forceUpdate && hasLoadedOnce && !hasNewBookings;
+                if (shouldSkipRender) {
+                    // Don't update UI if nothing changed during polling
                     return;
                 }
+                
+                // Update tracking after we've decided to render
+                lastBookingCount = currentBookingCount;
+                lastBookingId = newestBookingId;
+                hasLoadedOnce = true;
                 
                 // Render bookings grouped by date
                 let html = '';
