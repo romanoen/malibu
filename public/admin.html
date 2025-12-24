@@ -584,11 +584,22 @@
                     dayBookings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
                     const isExpanded = expandedDays.includes(dateKey);
                     const isToday = dateKey === todayKey;
+                    
+                    // Count pending payment confirmations
+                    const pendingCount = dayBookings.filter(b => 
+                        b.status === 'pending' || b.status === 'payment_pending'
+                    ).length;
+                    
+                    let countText = `${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}`;
+                    if (pendingCount > 0) {
+                        countText += `, ${pendingCount} mal Zahlungsbestätigung ausstehend`;
+                    }
+                    
                     html += `
                         <div class="day-group">
                             <div class="day-header ${isToday ? 'today' : ''}" onclick="toggleDay('${dateKey}')">
                                 <h3>${dateKey}</h3>
-                                <span class="count">${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}</span>
+                                <span class="count">${countText}</span>
                             </div>
                             <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="day-${dateKey}">
                                 ${dayBookings.map(booking => renderBooking(booking)).join('')}
