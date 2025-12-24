@@ -160,6 +160,24 @@
             font-weight: bold;
         }
         
+        .day-header .pending-badge {
+            background: #dc3545;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-left: 8px;
+            display: inline-block;
+        }
+        
+        .day-header .count-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
         .day-bookings {
             display: none;
             padding: 0 10px;
@@ -590,16 +608,19 @@
                         b.status === 'pending' || b.status === 'payment_pending'
                     ).length;
                     
-                    let countText = `${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}`;
-                    if (pendingCount > 0) {
-                        countText += `, ${pendingCount} mal Zahlungsbestätigung ausstehend`;
-                    }
+                    const countText = `${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}`;
+                    const pendingBadge = pendingCount > 0 
+                        ? `<span class="pending-badge">${pendingCount} mal Zahlungsbestätigung ausstehend</span>`
+                        : '';
                     
                     html += `
                         <div class="day-group">
                             <div class="day-header ${isToday ? 'today' : ''}" onclick="toggleDay('${dateKey}')">
                                 <h3>${dateKey}</h3>
-                                <span class="count">${countText}</span>
+                                <div class="count-container">
+                                    <span class="count">${countText}</span>
+                                    ${pendingBadge}
+                                </div>
                             </div>
                             <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="day-${dateKey}">
                                 ${dayBookings.map(booking => renderBooking(booking)).join('')}
