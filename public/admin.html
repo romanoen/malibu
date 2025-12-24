@@ -131,6 +131,16 @@
             border-color: #ff6b35;
         }
         
+        .day-header.today {
+            background: #e8f5e9;
+            border-color: #4caf50;
+        }
+        
+        .day-header.today:hover {
+            background: #c8e6c9;
+            border-color: #4caf50;
+        }
+        
         .day-header h3 {
             margin: 0;
             color: #333;
@@ -542,6 +552,10 @@
                 lastBookingId = newestBookingId;
                 hasLoadedOnce = true;
                 
+                // Get today's date for comparison
+                const today = new Date();
+                const todayKey = today.toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' });
+                
                 // Render bookings grouped by date
                 let html = '';
                 sortedDates.forEach(dateKey => {
@@ -549,9 +563,10 @@
                     // Sort bookings within the day by start time (earliest first)
                     dayBookings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
                     const isExpanded = expandedDays.includes(dateKey);
+                    const isToday = dateKey === todayKey;
                     html += `
                         <div class="day-group">
-                            <div class="day-header" onclick="toggleDay('${dateKey}')">
+                            <div class="day-header ${isToday ? 'today' : ''}" onclick="toggleDay('${dateKey}')">
                                 <h3>${dateKey}</h3>
                                 <span class="count">${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}</span>
                             </div>
