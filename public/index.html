@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUP Verleih Bodensee</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏄 Malibu SUP Kressbronn</h1>
+            <p class="subtitle">Reservierungsportal</p>
+        </header>
+
+        <main>
+            <form id="bookingForm">
+                <div class="form-group">
+                    <label for="name">Name *</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">Telefonnummer *</label>
+                    <input type="tel" id="phone" name="phone" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="numberOfBoards">Anzahl der SUP-Boards *</label>
+                    <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="bookingDate">Datum *</label>
+                    <input type="date" id="bookingDate" name="bookingDate" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="startTime">Startzeit *</label>
+                    <select id="startTime" name="startTime" required>
+                        <option value="">Bitte wählen</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="endTime">Endzeit *</label>
+                    <select id="endTime" name="endTime" required>
+                        <option value="">Bitte wählen</option>
+                    </select>
+                </div>
+
+                <div class="price-display">
+                    <strong>Gesamtpreis: <span id="totalPrice">0,00 €</span></strong>
+                </div>
+
+                <div class="form-group">
+                    <label>Zahlungsmethode *</label>
+                    <div class="payment-options">
+                        <label class="payment-option">
+                            <input type="radio" name="paymentMethod" value="paypal" required>
+                            <span>💳 PayPal</span>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="paymentMethod" value="cash" required>
+                            <span>💵 Barzahlung vor Ort</span>
+                        </label>
+                    </div>
+                    <small class="cash-note">Bei Barzahlung: Bitte lege das Bargeld vor Ort in einen bereitgestellten Umschlag, beschrifte diesen mit deinem Buchungsnamen und lege ihn in den markierten Briefkasten.</small>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="privacyCheck" name="privacyCheck" required>
+                            <span>Ich habe die <a href="/datenschutz.html" target="_blank" class="link-checkbox">Datenschutzerklärung</a> gelesen und akzeptiere sie. *</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="safetyCheck" name="safetyCheck" required>
+                            <span>Ich habe den <a href="/leitfaden.html" target="_blank" class="link-checkbox">Leitfaden zum sicheren Umgang mit Leihmaterial</a> gelesen. *</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="submit-btn">
+                    Buchung abschließen
+                </button>
+            </form>
+
+            <div id="dayRateMessage" class="info-message hidden">
+                <h2>ℹ️ Tagesmiete aktiviert</h2>
+                <p id="dayRateDetails"></p>
+            </div>
+
+            <div id="successMessage" class="success-message hidden">
+                <h2>✅ Buchung erfolgreich!</h2>
+                <p id="successDetails"></p>
+            </div>
+
+            <div id="errorMessage" class="error-message hidden">
+                <h2>❌ Fehler</h2>
+                <p id="errorDetails"></p>
+            </div>
+        </main>
+
+        <footer>
+            <div class="pricing-info">
+                <h3>Preise</h3>
+                <ul>
+                    <li>1 Stunde: 15€</li>
+                    <li>Jede weitere 15 Minuten: +5€</li>
+                    <li>Tag (24h): 50€</li>
+                </ul>
+            </div>
+        </footer>
+    </div>
+
+
+    <script src="app.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,9 @@
+node_modules/
+bookings.json
+.env
+.DS_Store
+*.log
+
+# Database files (keep schema.sql and migrate.js, but ignore data)
+# bookings.json is already ignored above
+

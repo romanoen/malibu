@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Buchungsverwaltung</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .admin-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .booking-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .booking-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .status-badge {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .status-payment_pending {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .status-confirmed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .verify-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .verify-btn:hover {
+            background: #218838;
+        }
+        .verify-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-container">
+        <header>
+            <h1>🏄 Buchungsverwaltung - Malibu SUP Kressbronn</h1>
+        </header>
+
+        <div id="bookingsList"></div>
+    </div>
+
+    <script>
+        async function loadBookings() {
+            try {
+                const response = await fetch('/api/bookings');
+                const bookings = await response.json();
+                
+                const list = document.getElementById('bookingsList');
+                
+                if (bookings.length === 0) {
+                    list.innerHTML = '<p>Keine Buchungen vorhanden.</p>';
+                    return;
+                }
+                
+                // Sort by date (newest first)
+                bookings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                
+                list.innerHTML = bookings.map(booking => {
+                    const date = new Date(booking.startTime);
+                    const startDate = date.toLocaleDateString('de-DE');
+                    const startTime = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const endDate = new Date(booking.endTime);
+                    const endTime = endDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    
+                    let statusBadge = '';
+                    let verifyButton = '';
+                    
+                    if (booking.status === 'payment_pending' && booking.paymentMethod === 'paypal') {
+                        statusBadge = '<span class="status-badge status-payment_pending">Zahlung ausstehend</span>';
+                        verifyButton = `<button class="verify-btn" onclick="verifyPayment('${booking.id}')">Zahlung verifizieren</button>`;
+                    } else if (booking.status === 'pending' && booking.paymentMethod === 'cash') {
+                        statusBadge = '<span class="status-badge status-pending">Barzahlung ausstehend</span>';
+                    } else if (booking.status === 'confirmed') {
+                        statusBadge = '<span class="status-badge status-confirmed">Bestätigt</span>';
+                    }
+                    
+                    return `
+                        <div class="booking-card">
+                            <div class="booking-header">
+                                <div>
+                                    <h3>${booking.name}</h3>
+                                    <p>Tel: ${booking.phone}</p>
+                                </div>
+                                <div>
+                                    ${statusBadge}
+                                    ${verifyButton}
+                                </div>
+                            </div>
+                            <div>
+                                <p><strong>Datum:</strong> ${startDate}</p>
+                                <p><strong>Zeit:</strong> ${startTime} - ${endTime}</p>
+                                <p><strong>Boards:</strong> ${booking.numberOfBoards}</p>
+                                <p><strong>Preis:</strong> ${booking.price.toFixed(2)}€</p>
+                                <p><strong>Zahlungsmethode:</strong> ${booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung'}</p>
+                                <p><strong>Erstellt:</strong> ${new Date(booking.createdAt).toLocaleString('de-DE')}</p>
+                                ${booking.paymentVerified ? `<p><strong>Verifiziert:</strong> ${new Date(booking.verifiedAt).toLocaleString('de-DE')}</p>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+                document.getElementById('bookingsList').innerHTML = '<p>Fehler beim Laden der Buchungen.</p>';
+            }
+        }
+        
+        async function verifyPayment(bookingId) {
+            if (!confirm('Möchtest du diese PayPal-Zahlung wirklich als verifiziert markieren?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/bookings/${bookingId}/verify`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Zahlung erfolgreich verifiziert!');
+                    loadBookings();
+                } else {
+                    alert('Fehler bei der Verifizierung: ' + (data.error || 'Unbekannter Fehler'));
+                }
+            } catch (error) {
+                console.error('Error verifying payment:', error);
+                alert('Fehler bei der Verifizierung.');
+            }
+        }
+        
+        // Load bookings on page load
+        loadBookings();
+        
+        // Refresh every 30 seconds
+        setInterval(loadBookings, 30000);
+    </script>
+</body>
+</html>
+
