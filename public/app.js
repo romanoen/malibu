@@ -216,11 +216,19 @@ form.addEventListener('submit', async (e) => {
                 // Show message first with PayPal button
                 showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
                 
-                // Try to open PayPal immediately - open in new tab/window
-                // Use setTimeout to ensure it's treated as user-initiated after async operation
-                setTimeout(() => {
-                    window.open(paypalUrl, '_blank');
-                }, 0);
+                // Try to open PayPal immediately - Safari on iPhone often blocks this
+                // So we rely on the button as primary method
+                try {
+                    setTimeout(() => {
+                        const paypalWindow = window.open(paypalUrl, '_blank');
+                        // If blocked (common on Safari iPhone), the button will work
+                        if (!paypalWindow) {
+                            console.log('PayPal popup blocked - button available');
+                        }
+                    }, 0);
+                } catch (error) {
+                    console.log('PayPal popup failed - button available');
+                }
             } else {
                 showSuccessMessage(data.booking, 'paypal', true);
             }
@@ -260,9 +268,9 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false, p
         paypalButton.style.display = 'none';
     } else if (paymentMethod === 'paypal') {
         if (needsVerification) {
-            details = `Deine Buchung wurde erstellt, ist aber noch nicht bestätigt! Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€). `;
+            details = `Deine Buchung wurde erstellt, ist aber noch nicht bestätigt! Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€).`;
         } else {
-            details = `Deine Buchung wurde erfolgreich abgeschlossen! PayPal-Zahlung: ${booking.price.toFixed(2)}€. `;
+            details = `Deine Buchung wurde erfolgreich abgeschlossen! PayPal-Zahlung: ${booking.price.toFixed(2)}€.`;
         }
         
         // Show PayPal button if URL is provided
@@ -270,12 +278,8 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false, p
             paypalButton.href = paypalUrl;
             paypalButton.style.display = 'inline-block';
             paypalButton.classList.remove('hidden');
-            // Ensure button is clickable
-            paypalButton.onclick = function(e) {
-                e.preventDefault();
-                window.open(paypalUrl, '_blank');
-                return false;
-            };
+            // Remove any onclick handler - let the native link behavior work (best for Safari iPhone)
+            paypalButton.onclick = null;
         } else {
             paypalButton.style.display = 'none';
             paypalButton.classList.add('hidden');
