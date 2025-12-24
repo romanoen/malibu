@@ -489,12 +489,14 @@
                 
                 const bookings = await response.json();
                 
-                // Check if there are new bookings
+                // Check if there are new bookings (only if we had a previous state)
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
-                const hasNewBookings = forceUpdate || 
+                const hadPreviousState = lastBookingId !== null;
+                const hasNewBookings = hadPreviousState && (
                     currentBookingCount !== lastBookingCount || 
-                    (newestBookingId && newestBookingId !== lastBookingId);
+                    (newestBookingId && newestBookingId !== lastBookingId)
+                );
                 
                 // Update tracking
                 lastBookingCount = currentBookingCount;
@@ -555,8 +557,8 @@
                 
                 document.getElementById('bookingsList').innerHTML = html;
                 
-                // Show notification if new bookings detected
-                if (hasNewBookings && !forceUpdate && lastBookingId) {
+                // Show notification if new bookings detected (only during polling, not on manual refresh)
+                if (hasNewBookings && !forceUpdate) {
                     showNewBookingNotification();
                 }
             } catch (error) {
