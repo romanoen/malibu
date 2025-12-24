@@ -197,22 +197,8 @@ form.addEventListener('submit', async (e) => {
                     paypalUrl = `${paypalUrl}/${formattedAmount}`;
                 }
                 
-                // Show message first with PayPal button
+                // Show message with PayPal button (no automatic redirect)
                 showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
-                
-                // Try to open PayPal immediately - Safari on iPhone often blocks this
-                // So we rely on the button as primary method
-                try {
-                    setTimeout(() => {
-                        const paypalWindow = window.open(paypalUrl, '_blank');
-                        // If blocked (common on Safari iPhone), the button will work
-                        if (!paypalWindow) {
-                            console.log('PayPal popup blocked - button available');
-                        }
-                    }, 0);
-                } catch (error) {
-                    console.log('PayPal popup failed - button available');
-                }
             } else {
                 showSuccessMessage(data.booking, 'paypal', true);
             }
