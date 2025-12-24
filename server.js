@@ -248,16 +248,28 @@ app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
         startDate = new Date(0); // All time
     }
     
-    const filteredBookings = bookings.filter(b => {
+    // Get all bookings in the period (both confirmed and unconfirmed)
+    const allBookingsInPeriod = bookings.filter(b => {
       const bookingDate = new Date(b.createdAt);
-      return bookingDate >= startDate && b.status === 'confirmed';
+      return bookingDate >= startDate;
     });
     
-    const totalRevenue = filteredBookings.reduce((sum, b) => sum + parseFloat(b.price || 0), 0);
-    const totalBookings = filteredBookings.length;
+    // Get confirmed bookings
+    const confirmedBookings = allBookingsInPeriod.filter(b => b.status === 'confirmed');
+    
+    // Get unconfirmed bookings (pending or payment_pending)
+    const unconfirmedBookings = allBookingsInPeriod.filter(b => 
+      b.status === 'pending' || b.status === 'payment_pending'
+    );
+    
+    // Calculate revenues
+    const totalRevenue = allBookingsInPeriod.reduce((sum, b) => sum + parseFloat(b.price || 0), 0);
+    const unconfirmedRevenue = unconfirmedBookings.reduce((sum, b) => sum + parseFloat(b.price || 0), 0);
+    const totalBookings = allBookingsInPeriod.length;
     
     res.json({
       totalRevenue: totalRevenue.toFixed(2),
+      unconfirmedRevenue: unconfirmedRevenue.toFixed(2),
       totalBookings,
       period
     });
