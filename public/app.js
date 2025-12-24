@@ -206,10 +206,13 @@ form.addEventListener('submit', async (e) => {
                     if (!paypalUrl.startsWith('http://') && !paypalUrl.startsWith('https://')) {
                         paypalUrl = 'https://' + paypalUrl;
                     }
-                    // Format amount for PayPal.me (remove .00 if whole number)
+                    // Remove trailing slash if present
+                    paypalUrl = paypalUrl.replace(/\/$/, '');
+                    // Format amount for PayPal.me - always use 2 decimal places for better compatibility
                     const amount = parseFloat(data.booking.paypalAmount);
-                    const formattedAmount = amount % 1 === 0 ? amount.toString() : amount.toFixed(2);
+                    const formattedAmount = amount.toFixed(2);
                     // Add amount to the link (PayPal.me format: /amount)
+                    // Using .00 format for better PayPal recognition
                     paypalUrl = `${paypalUrl}/${formattedAmount}`;
                 }
                 
