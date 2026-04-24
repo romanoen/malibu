@@ -30,6 +30,11 @@ async function initDatabase() {
       await ensureNotesColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
+      usePostgreSQL = false;
+      if (pool) {
+        await pool.end().catch(() => {});
+        pool = null;
+      }
       throw error;
     }
   } else {
@@ -191,6 +196,10 @@ async function updateBooking(bookingId, updates) {
       setClause.push(`notes = $${paramIndex++}`);
       values.push(updates.notes);
     }
+
+    if (setClause.length === 0) {
+      return;
+    }
     
     values.push(bookingId);
     
@@ -272,4 +281,3 @@ module.exports = {
   findBookingById,
   closeDatabase
 };
-

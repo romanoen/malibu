@@ -63,6 +63,7 @@ async function migrate() {
           paypalAmount: booking.paypalAmount || booking.paypal_amount,
           paymentVerified: booking.paymentVerified || booking.payment_verified || false,
           verifiedAt: booking.verifiedAt || booking.verified_at,
+          notes: booking.notes,
           createdAt: booking.createdAt || booking.created_at || new Date().toISOString()
         };
         
@@ -91,4 +92,3 @@ async function migrate() {
 
 // Run migration
 migrate();
-

@@ -1,92 +1,85 @@
-# 🏄 Surfboard Verleih Website
+# Malibu SUP Kressbronn
 
-Eine moderne, mobile-optimierte Website für den Surfboard-Verleih mit integriertem Buchungssystem und Zahlungsabwicklung.
+Mobile-first booking portal for SUP rentals with PayPal and cash payment workflows, an admin dashboard, and PostgreSQL support for production hosting.
 
 ## Features
 
-- 📱 **Mobile-First Design**: Optimiert für alle Geräte
-- 💳 **Zahlungsintegration**: Stripe für Kreditkartenzahlungen
-- 💵 **Barzahlung**: Option für Barzahlung vor Ort
-- ⏰ **Flexible Preise**: 
-  - 1 Stunde: 15€
-  - Jede weitere 15 Minuten: +5€
-  - Tag (24h): 50€
-- 📋 **Einfache Buchung**: Name, Telefon, Anzahl Boards, Start- und Endzeit
+- Public booking form with 15-minute time slots from 8:00 to 20:00
+- Server-side booking validation and price calculation
+- PayPal.me payment link support
+- Cash payment flow with manual admin confirmation
+- Admin dashboard with booking groups, notes, payment verification, and revenue stats
+- Local JSON storage for development
+- PostgreSQL storage when `DATABASE_URL` is configured
 
-## Installation
+## Prices
 
-1. **Abhängigkeiten installieren:**
-   ```bash
-   npm install
-   ```
+- SUP board 90 min.: 15,00 EUR
+- SUP board 2h: 20,00 EUR
+- SUP board up to 3h: 30,00 EUR
+- SUP board 1 day: 50,00 EUR
+- Kleingruppen-Special: 4 boards for 90 min.: 50,00 EUR
 
-2. **PayPal Link konfigurieren:**
-   
-   Erstelle eine `.env` Datei und füge deinen PayPal Link ein:
-   ```bash
-   PAYPAL_LINK=https://paypal.me/deinname
-   ```
-   
-   **PayPal Link Optionen:**
-   - PayPal.me Link: `https://paypal.me/deinname` (einfachste Option)
-   - PayPal Payment Button Link: Falls du einen PayPal Button erstellt hast
-   
-   **Hinweis:** Der PayPal Link wird automatisch mit dem Betrag erweitert (z.B. `paypal.me/deinname/50EUR`)
+## Setup
 
-3. **Server starten:**
-   ```bash
-   npm start
-   ```
-   
-   Oder für Entwicklung mit Auto-Reload:
-   ```bash
-   npm run dev
-   ```
+```bash
+npm install
+cp .env.example .env
+npm start
+```
 
-4. **Website öffnen:**
-   Öffne `http://localhost:3000` im Browser
+Open `http://localhost:3000`.
 
-## PayPal Setup
+For development with auto-reload:
 
-1. Erstelle einen PayPal Account (falls noch nicht vorhanden)
-2. Aktiviere PayPal.me auf [paypal.com](https://www.paypal.com/de/webapps/mpp/paypal-me)
-3. Erhalte deinen persönlichen PayPal.me Link (z.B. `paypal.me/deinname`)
-4. Setze den Link in der `.env` Datei als `PAYPAL_LINK`
+```bash
+npm run dev
+```
 
-## Datenbank
+## Environment
 
-### Lokale Entwicklung
-Alle Buchungen werden in `bookings.json` gespeichert. Diese Datei wird automatisch erstellt.
+Create `.env` from `.env.example` and set at least:
 
-### Produktion mit PostgreSQL
-Wenn `DATABASE_URL` gesetzt ist (z.B. bei Railway/Render), wird automatisch PostgreSQL verwendet.
+```bash
+PAYPAL_LINK=https://paypal.me/KlausOelfken
+ADMIN_PASSWORD=dein_sicheres_passwort
+```
 
-**Migration bestehender Daten:**
+Optional:
+
+- `PORT=3000`
+- `DATABASE_URL=postgres://...`
+- `NODE_ENV=production`
+
+In production, `ADMIN_PASSWORD` must be configured or admin login is disabled.
+
+## Data Storage
+
+Local development uses `bookings.json`, which is ignored by git and created automatically.
+
+Production uses PostgreSQL when `DATABASE_URL` is present. To migrate local JSON bookings into PostgreSQL:
+
 ```bash
 npm run migrate
 ```
 
-## Produktion / Hosting
+## Tests
 
-### Railway (empfohlen)
-1. Erstelle Account auf [railway.app](https://railway.app)
-2. "New Project" → "Deploy from GitHub"
-3. PostgreSQL-Datenbank hinzufügen ("New" → "Database" → "Add PostgreSQL")
-4. Environment-Variablen setzen:
-   - `PAYPAL_LINK=https://paypal.me/deinname`
-   - `DATABASE_URL` wird automatisch gesetzt
-5. Deploy!
+```bash
+npm test
+```
 
-### Render (Alternative)
-1. Erstelle Account auf [render.com](https://render.com)
-2. "New Web Service" → GitHub Repository verbinden
-3. PostgreSQL-Datenbank hinzufügen
-4. Environment-Variablen setzen
-5. Deploy!
+## Hosting
 
-Siehe auch: `HOSTING_GUIDE.md` und `RAILWAY_SETUP.md` für detaillierte Anleitung.
+Railway and Render are both supported. See `HOSTING_GUIDE.md` and `RAILWAY_SETUP.md` for deployment steps.
 
-## Lizenz
+Minimum production variables:
+
+- `PAYPAL_LINK`
+- `ADMIN_PASSWORD`
+- `DATABASE_URL`
+- `NODE_ENV=production`
+
+## License
 
 ISC
-

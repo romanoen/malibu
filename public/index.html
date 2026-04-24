@@ -9,109 +9,138 @@
 </head>
 <body>
     <div class="container">
-        <div class="header-image">
-            <img src="/images/image.png" alt="Malibu SUP Kressbronn">
-        </div>
         <header>
-            <h1>🏄 Malibu SUP Kressbronn</h1>
-            <p class="subtitle">Reservierungsportal</p>
+            <img src="/images/image.png" alt="Malibu SUP Kressbronn" class="brand-logo">
+            <div class="hero-copy">
+                <p class="eyebrow">SUP Verleih Bodensee</p>
+                <h1>Malibu SUP Kressbronn</h1>
+                <p class="subtitle">Reservieren, zahlen, aufs Wasser.</p>
+            </div>
         </header>
 
         <main>
             <form id="bookingForm">
-                <div class="form-group">
-                    <label for="name">Name *</label>
-                    <input type="text" id="name" name="name" required>
-                </div>
+                <section class="form-section">
+                    <h2>Kontakt</h2>
+                    <div class="field-grid two-columns">
+                        <div class="form-group">
+                            <label for="name">Name</label>
+                            <input type="text" id="name" name="name" autocomplete="name" placeholder="Dein Name" required>
+                        </div>
 
-                <div class="form-group">
-                    <label for="phone">Telefonnummer *</label>
-                    <input type="tel" id="phone" name="phone" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="numberOfBoards">Anzahl der SUP-Boards *</label>
-                    <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="bookingDate">Datum *</label>
-                    <input type="date" id="bookingDate" name="bookingDate" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="startTime">Startzeit *</label>
-                    <select id="startTime" name="startTime" required>
-                        <option value="">Bitte wählen</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="endTime">Endzeit *</label>
-                    <select id="endTime" name="endTime" required>
-                        <option value="">Bitte wählen</option>
-                    </select>
-                </div>
-
-                <div class="price-display">
-                    <strong>Gesamtpreis: <span id="totalPrice">0,00 €</span></strong>
-                </div>
-
-                <div class="form-group">
-                    <label>Zahlungsmethode *</label>
-                    <div class="payment-options">
-                        <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="paypal" required>
-                            <span>💳 PayPal</span>
-                        </label>
-                        <label class="payment-option">
-                            <input type="radio" name="paymentMethod" value="cash" required>
-                            <span>💵 Barzahlung vor Ort</span>
-                        </label>
+                        <div class="form-group">
+                            <label for="phone">Telefon</label>
+                            <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="0152 12345678" required>
+                        </div>
                     </div>
-                    <small class="cash-note">Bei Barzahlung: Bitte lege das Bargeld vor Ort in einen bereitgestellten Umschlag, beschrifte diesen mit deinem Buchungsnamen und lege ihn in den markierten Briefkasten.</small>
-                </div>
+                </section>
 
-                <div class="form-group">
+                <section class="form-section">
+                    <h2>Ausleihe</h2>
+                    <div class="form-group">
+                        <label for="numberOfBoards">SUP-Boards</label>
+                        <div class="board-stepper">
+                            <button type="button" class="stepper-btn" data-board-step="-1" aria-label="Ein Board weniger">−</button>
+                            <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" inputmode="numeric" required>
+                            <button type="button" class="stepper-btn" data-board-step="1" aria-label="Ein Board mehr">+</button>
+                        </div>
+                    </div>
+
+                    <div class="field-grid two-columns">
+                        <div class="form-group">
+                            <label for="bookingDate">Datum</label>
+                            <input type="date" id="bookingDate" name="bookingDate" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="startTime">Start</label>
+                            <select id="startTime" name="startTime" required>
+                                <option value="">Bitte wählen</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group compact-group">
+                        <span class="field-label">Dauer</span>
+                        <div class="duration-options" aria-label="Dauer">
+                            <button type="button" class="duration-btn" data-duration-minutes="90">90 min</button>
+                            <button type="button" class="duration-btn" data-duration-minutes="120">2 h</button>
+                            <button type="button" class="duration-btn" data-duration-minutes="180">3 h</button>
+                            <button type="button" class="duration-btn" data-duration-custom="true">Andere</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group custom-time-field hidden" id="customTimeField">
+                        <label for="endTime">Endzeit</label>
+                        <select id="endTime" name="endTime">
+                            <option value="">Bitte wählen</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="form-section">
+                    <h2>Zahlung</h2>
+                    <div class="form-group">
+                        <div class="payment-options">
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="paypal" required>
+                                <span>PayPal</span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="paymentMethod" value="cash" required>
+                                <span>Bar vor Ort</span>
+                            </label>
+                        </div>
+                        <small id="paymentNote" class="cash-note hidden">Bei Barzahlung bitte vor Ort passend im Umschlag hinterlegen.</small>
+                    </div>
+                </section>
+
+                <section class="form-section legal-section">
                     <div class="checkbox-group">
                         <label class="checkbox-label">
                             <input type="checkbox" id="privacyCheck" name="privacyCheck" required>
-                            <span>Ich habe die <a href="/datenschutz.html" target="_blank" class="link-checkbox">Datenschutzerklärung</a> gelesen und akzeptiere sie. *</span>
+                            <span><a href="/datenschutz.html" target="_blank" class="link-checkbox">Datenschutz</a> akzeptiert</span>
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" id="safetyCheck" name="safetyCheck" required>
-                            <span>Ich habe den <a href="/leitfaden.html" target="_blank" class="link-checkbox">Leitfaden zum sicheren Umgang mit Leihmaterial</a> gelesen. *</span>
+                            <span><a href="/leitfaden.html" target="_blank" class="link-checkbox">Leitfaden</a> gelesen</span>
                         </label>
                     </div>
-                </div>
+                </section>
 
-                <button type="submit" id="submitBtn" class="submit-btn">
-                    Buchung abschließen
-                </button>
+                <div class="booking-action-bar">
+                    <div class="price-display" aria-live="polite">
+                        <span>Gesamt</span>
+                        <strong id="totalPrice">0,00 €</strong>
+                    </div>
+                    <button type="submit" id="submitBtn" class="submit-btn">
+                        Reservieren
+                    </button>
+                </div>
             </form>
 
             <div id="dayRateMessage" class="info-message hidden">
-                <h2>ℹ️ Tagesmiete aktiviert</h2>
+                <h2>Tagesmiete aktiviert</h2>
                 <p id="dayRateDetails"></p>
             </div>
 
             <div id="successMessage" class="success-message hidden">
-                <h2>✅ Buchung erfolgreich!</h2>
+                <h2>Buchung erstellt</h2>
                 <p id="successDetails"></p>
-                <a id="paypalLinkButton" href="#" target="_blank" class="paypal-button hidden" style="display: none; margin-top: 20px; padding: 18px 28px; background: #0070ba; color: white; text-decoration: none; border-radius: 12px; font-weight: bold; text-align: center; width: 100%; cursor: pointer; font-size: 18px; box-shadow: 0 4px 12px rgba(0, 112, 186, 0.3); transition: all 0.3s ease;">
-                    💳 Jetzt bei PayPal bezahlen
+                <a id="paypalLinkButton" href="#" target="_blank" class="paypal-button hidden">
+                    Jetzt bei PayPal bezahlen
                 </a>
             </div>
 
             <div id="errorMessage" class="error-message hidden">
-                <h2>❌ Fehler</h2>
+                <h2>Fehler</h2>
                 <p id="errorDetails"></p>
             </div>
         </main>
 
         <footer>
-            <div class="pricing-info">
-                <h3>Preise</h3>
+            <details class="pricing-info">
+                <summary>Preise & Kontakt</summary>
                 <ul>
                     <li>SUP Board 90 min.: 15,00€</li>
                     <li>SUP Board 2h: 20,00€</li>
@@ -119,20 +148,18 @@
                     <li>SUP Board 1 Tag: 50,00€</li>
                     <li><strong>Kleingruppen-Special:</strong> 4er Pack Boards 90': 50,00€</li>
                 </ul>
-                <p style="margin-top: 15px; font-size: 0.9rem; color: #666;">
-                    (inkl. Paddel, Seesack)
-                </p>
-                <p style="margin-top: 15px; font-size: 0.9rem;">
+                <p class="included-note">(inkl. Paddel, Seesack)</p>
+                <p class="contact-note">
                     Für spezielle Gruppenrabatte, Firmenevents oder ähnliches:<br>
-                    <a href="https://wa.me/4915222658679" target="_blank" style="color: #25D366; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 5px;">
-                        📱 WhatsApp: 0152 22 65 8679
-                    </a>
+                    Telefon: <a href="tel:+491788748517">0178 8748 517</a><br>
+                    E-Mail: <a href="mailto:malibusupverleih@aol.com">malibusupverleih@aol.com</a><br>
+                    Bitte keine Buchungsanfragen per E-Mail.
                 </p>
-                <p style="margin-top: 20px; font-size: 0.85rem; color: #999; border-top: 1px solid #eee; padding-top: 15px;">
-                    <a href="/impressum.html" style="color: #999; text-decoration: none; margin-right: 15px;">Impressum</a>
-                    <a href="/datenschutz.html" style="color: #999; text-decoration: none;">Datenschutz</a>
+                <p class="legal-links">
+                    <a href="/impressum.html">Impressum</a>
+                    <a href="/datenschutz.html">Datenschutz</a>
                 </p>
-            </div>
+            </details>
         </footer>
     </div>
 
@@ -140,4 +167,3 @@
     <script src="app.js"></script>
 </body>
 </html>
-

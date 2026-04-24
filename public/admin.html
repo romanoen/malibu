@@ -371,38 +371,75 @@
     </div>
 
     <script>
-        let sessionId = null;
+        let isAuthenticated = false;
+        let authStateVersion = 0;
         let currentPeriod = localStorage.getItem('adminPeriod') || 'month';
         let expandedDays = JSON.parse(localStorage.getItem('adminExpandedDays') || '[]');
         let lastBookingCount = 0;
         let lastBookingId = null;
         let isPolling = false;
         let hasLoadedOnce = false;
-        
-        // Check if already logged in
-        const savedSession = localStorage.getItem('adminSessionId');
-        if (savedSession) {
-            sessionId = savedSession;
-            checkSession();
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[char]));
         }
+
+        function toJsString(value) {
+            return JSON.stringify(String(value ?? ''))
+                .replace(/</g, '\\u003c')
+                .replace(/\u2028/g, '\\u2028')
+                .replace(/\u2029/g, '\\u2029');
+        }
+
+        async function adminFetch(url, options = {}) {
+            const { handleUnauthorized = true, ...fetchOptions } = options;
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                ...fetchOptions,
+                headers: {
+                    ...(fetchOptions.headers || {})
+                }
+            });
+
+            if (handleUnauthorized && response.status === 401) {
+                showLoggedOutState();
+            }
+
+            return response;
+        }
+
+        checkSession();
         
         // Login form
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('passwordInput').value;
+            document.getElementById('loginError').classList.add('hidden');
+            const loginVersion = ++authStateVersion;
             
             try {
                 const response = await fetch('/api/admin/login', {
                     method: 'POST',
+                    credentials: 'same-origin',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
                 
                 const data = await response.json();
                 
+                if (loginVersion !== authStateVersion) {
+                    return;
+                }
+
                 if (data.success) {
-                    sessionId = data.sessionId;
-                    localStorage.setItem('adminSessionId', sessionId);
+                    isAuthenticated = true;
+                    document.getElementById('passwordInput').value = '';
                     showDashboard();
                 } else {
                     showLoginError(data.error || 'Falsches Passwort');
@@ -413,24 +450,30 @@
         });
         
         async function checkSession() {
+            const requestVersion = authStateVersion;
+
             try {
-                const response = await fetch('/api/admin/bookings', {
-                    headers: { 'X-Session-Id': sessionId }
+                const response = await adminFetch('/api/admin/session', {
+                    handleUnauthorized: false
                 });
+
+                if (requestVersion !== authStateVersion) {
+                    return;
+                }
                 
                 if (response.ok) {
+                    isAuthenticated = true;
                     showDashboard();
                 } else {
-                    localStorage.removeItem('adminSessionId');
-                    sessionId = null;
+                    showLoggedOutState();
                 }
             } catch (error) {
-                localStorage.removeItem('adminSessionId');
-                sessionId = null;
+                showLoggedOutState();
             }
         }
         
         function showDashboard() {
+            isAuthenticated = true;
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
             
@@ -458,12 +501,34 @@
             return map[period] || 'Monat';
         }
         
-        function logout() {
-            sessionId = null;
-            localStorage.removeItem('adminSessionId');
+        function showLoggedOutState() {
+            authStateVersion += 1;
+            isAuthenticated = false;
+            lastBookingCount = 0;
+            lastBookingId = null;
+            hasLoadedOnce = false;
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('adminDashboard').classList.add('hidden');
             document.getElementById('passwordInput').value = '';
+            document.getElementById('bookingsList').innerHTML = '';
+
+            const notification = document.getElementById('newBookingNotification');
+            if (notification) {
+                notification.remove();
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/admin/logout', {
+                    method: 'POST',
+                    credentials: 'same-origin'
+                });
+            } catch (error) {
+                console.error('Logout error:', error);
+            } finally {
+                showLoggedOutState();
+            }
         }
         
         function showLoginError(message) {
@@ -487,9 +552,7 @@
             }
             
             try {
-                const response = await fetch(`/api/admin/statistics?period=${period}`, {
-                    headers: { 'X-Session-Id': sessionId }
-                });
+                const response = await adminFetch(`/api/admin/statistics?period=${period}`);
                 
                 if (!response.ok) throw new Error();
                 
@@ -524,15 +587,9 @@
         
         async function loadBookings(forceUpdate = false) {
             try {
-                const response = await fetch('/api/admin/bookings', {
-                    headers: { 'X-Session-Id': sessionId }
-                });
+                const response = await adminFetch('/api/admin/bookings');
                 
                 if (!response.ok) {
-                    if (response.status === 401) {
-                        logout();
-                        return;
-                    }
                     throw new Error();
                 }
                 
@@ -688,18 +745,12 @@
             
             // Poll every 10 seconds for new bookings
             setInterval(async () => {
-                if (!sessionId) return;
+                if (!isAuthenticated) return;
                 
                 try {
-                    const response = await fetch('/api/admin/bookings', {
-                        headers: { 'X-Session-Id': sessionId }
-                    });
+                    const response = await adminFetch('/api/admin/bookings');
                     
                     if (!response.ok) {
-                        if (response.status === 401) {
-                            logout();
-                            return;
-                        }
                         return;
                     }
                     
@@ -723,6 +774,14 @@
             const startTime = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             const endDate = new Date(booking.endTime);
             const endTime = endDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const bookingId = String(booking.id ?? '');
+            const bookingIdJs = toJsString(bookingId);
+            const notesElementId = `notes-${bookingId}`;
+            const verifyAction = escapeHtml(`verifyPayment(${bookingIdJs})`);
+            const saveNotesAction = escapeHtml(`saveNotes(${bookingIdJs}, this)`);
+            const boardCount = Number.parseInt(booking.numberOfBoards, 10) || 0;
+            const price = Number.parseFloat(booking.price || 0).toFixed(2);
+            const notes = booking.notes || '';
             
             let statusBadge = '';
             let verifyButton = '';
@@ -733,42 +792,41 @@
                 } else {
                     statusBadge = '<span class="status-badge status-pending">Barzahlung ausstehend</span>';
                 }
-                verifyButton = `<button class="btn btn-verify" onclick="verifyPayment('${booking.id}')">Zahlung bestätigen</button>`;
+                verifyButton = `<button class="btn btn-verify" onclick="${verifyAction}">Zahlung bestätigen</button>`;
             } else if (booking.status === 'confirmed') {
                 statusBadge = '<span class="status-badge status-confirmed">Bestätigt</span>';
             }
             
             return `
                 <div class="booking-card">
-                    <div class="booking-header">
-                        <div class="booking-info">
-                            <h3>${booking.name}</h3>
-                            <p>📞 ${booking.phone}</p>
-                            <p class="time-line">🕐 <span class="time-range">${startTime} - ${endTime}</span></p>
-                            <p>🏄 ${booking.numberOfBoards} Board${booking.numberOfBoards !== 1 ? 's' : ''}</p>
-                            <p>💰 ${parseFloat(booking.price).toFixed(2)}€</p>
-                            <p>💳 ${booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung'}</p>
-                            ${booking.paymentVerified && booking.verifiedAt ? `<p>✅ Verifiziert: ${new Date(booking.verifiedAt).toLocaleString('de-DE')}</p>` : ''}
-                        </div>
-                        <div class="booking-actions">
-                            ${statusBadge}
+	                    <div class="booking-header">
+	                        <div class="booking-info">
+	                            <h3>${escapeHtml(booking.name || 'Ohne Namen')}</h3>
+	                            <p>📞 ${escapeHtml(booking.phone || '')}</p>
+	                            <p class="time-line">🕐 <span class="time-range">${escapeHtml(startTime)} - ${escapeHtml(endTime)}</span></p>
+	                            <p>🏄 ${boardCount} Board${boardCount !== 1 ? 's' : ''}</p>
+	                            <p>💰 ${price}€</p>
+	                            <p>💳 ${booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung'}</p>
+	                            ${booking.paymentVerified && booking.verifiedAt ? `<p>✅ Verifiziert: ${escapeHtml(new Date(booking.verifiedAt).toLocaleString('de-DE'))}</p>` : ''}
+	                        </div>
+	                        <div class="booking-actions">
+	                            ${statusBadge}
                             ${verifyButton}
                         </div>
-                    </div>
-                    <div class="notes-section">
-                        <textarea id="notes-${booking.id}" placeholder="Notizen hinzufügen...">${booking.notes || ''}</textarea>
-                        <button class="btn" onclick="saveNotes('${booking.id}')">Notizen speichern</button>
-                        ${booking.notes ? `<div class="notes-display"><strong>Notizen:</strong> ${booking.notes}</div>` : ''}
-                    </div>
-                </div>
-            `;
+	                    </div>
+	                    <div class="notes-section">
+	                        <textarea id="${escapeHtml(notesElementId)}" placeholder="Notizen hinzufügen...">${escapeHtml(notes)}</textarea>
+	                        <button class="btn" onclick="${saveNotesAction}">Notizen speichern</button>
+	                        ${notes ? `<div class="notes-display"><strong>Notizen:</strong> ${escapeHtml(notes)}</div>` : ''}
+	                    </div>
+	                </div>
+	            `;
         }
         
         async function verifyPayment(bookingId) {
             try {
-                const response = await fetch(`/api/bookings/${bookingId}/verify`, {
-                    method: 'POST',
-                    headers: { 'X-Session-Id': sessionId }
+                const response = await adminFetch(`/api/bookings/${encodeURIComponent(bookingId)}/verify`, {
+                    method: 'POST'
                 });
                 
                 const data = await response.json();
@@ -786,15 +844,14 @@
             }
         }
         
-        async function saveNotes(bookingId) {
+        async function saveNotes(bookingId, button) {
             const notes = document.getElementById(`notes-${bookingId}`).value;
             
             try {
-                const response = await fetch(`/api/bookings/${bookingId}/notes`, {
+                const response = await adminFetch(`/api/bookings/${encodeURIComponent(bookingId)}/notes`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-Session-Id': sessionId
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ notes })
                 });
@@ -806,14 +863,15 @@
                     await loadBookings(true); // Force update
                     
                     // Show success feedback (ohne Popup)
-                    const button = event.target;
-                    const originalText = button.textContent;
-                    button.textContent = '✓ Gespeichert!';
-                    button.style.background = '#28a745';
-                    setTimeout(() => {
-                        button.textContent = originalText;
-                        button.style.background = '#007bff';
-                    }, 2000);
+                    if (button) {
+                        const originalText = button.textContent;
+                        button.textContent = '✓ Gespeichert!';
+                        button.style.background = '#28a745';
+                        setTimeout(() => {
+                            button.textContent = originalText;
+                            button.style.background = '#007bff';
+                        }, 2000);
+                    }
                 } else {
                     console.error('Fehler beim Speichern der Notizen:', data.error || 'Unbekannter Fehler');
                 }

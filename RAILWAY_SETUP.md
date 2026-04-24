@@ -19,7 +19,7 @@
 
 ### 4. Environment-Variablen setzen
 Im Railway-Dashboard → Variables:
-- `PAYPAL_LINK=https://paypal.me/romaniscool`
+- `PAYPAL_LINK=https://paypal.me/KlausOelfken`
 - `ADMIN_PASSWORD=dein_sicheres_passwort`
 - `NODE_ENV=production`
 - `DATABASE_URL` ist bereits gesetzt (automatisch von Railway)
@@ -121,4 +121,3 @@ Ich kann dir helfen:
 - Migration-Script für bestehende Daten
 
 Sag einfach Bescheid! 🚀
-

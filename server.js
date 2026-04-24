@@ -1,135 +1,93 @@
 require('dotenv').config();
 
 const express = require('express');
-const bodyParser = require('body-parser');
 const cors = require('cors');
-const path = require('path');
+const crypto = require('crypto');
 const db = require('./database/db');
+const {
+  clearFailedLogins,
+  createAdminSession,
+  createClearedSessionCookie,
+  createSessionCookie,
+  destroyAdminSession,
+  getAdminPassword,
+  getAdminSession,
+  getLoginThrottleState,
+  registerFailedLogin,
+  secureCompare
+} = require('./lib/adminAuth');
+const {
+  calculatePrice,
+  validateBookingRequest,
+  validateBookingTimeSelection
+} = require('./lib/bookingRules');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let httpServer = null;
+
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json({ limit: '20kb' }));
 app.use(express.static('public'));
 
-// Simple session storage (in production, use proper session store)
-const sessions = new Map();
-
-// Initialize database on startup
-let dbInitialized = false;
 async function initializeApp() {
   try {
     await db.initDatabase();
-    dbInitialized = true;
   } catch (error) {
     console.error('Failed to initialize database:', error);
-    // Continue with JSON fallback
-    dbInitialized = false;
   }
 }
 
-// Calculate price based on duration
-function calculatePrice(duration, numberOfBoards) {
-  const hours = duration.hours || 0;
-  const minutes = duration.minutes || 0;
-  const totalMinutes = hours * 60 + minutes;
-  
-  // Kleingruppen-Special: 4 Boards für 90 Minuten = 50€
-  if (numberOfBoards === 4 && totalMinutes <= 90) {
-    return {
-      price: 50,
-      isDayRate: false,
-      pricePerBoard: 12.5,
-      isGroupSpecial: true
-    };
-  }
-  
-  // Day rate: 50€ per board (24 hours or more)
-  if (totalMinutes >= 24 * 60) {
-    return {
-      price: 50 * numberOfBoards,
-      isDayRate: true,
-      pricePerBoard: 50
-    };
-  }
-  
-  // Price tiers per board:
-  let pricePerBoard;
-  
-  if (totalMinutes <= 90) {
-    // 90 Minuten: 15€
-    pricePerBoard = 15;
-  } else if (totalMinutes <= 120) {
-    // 2 Stunden: 20€
-    pricePerBoard = 20;
-  } else if (totalMinutes <= 180) {
-    // Bis 3 Stunden: 30€
-    pricePerBoard = 30;
-  } else {
-    // Über 3 Stunden aber unter 24 Stunden: 30€ (bleibt bei 30€)
-    pricePerBoard = 30;
-  }
-  
-  return {
-    price: pricePerBoard * numberOfBoards,
-    isDayRate: false,
-    pricePerBoard: pricePerBoard
-  };
+function formatRetryMessage(retryAfterSeconds) {
+  const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `Zu viele Login-Versuche. Bitte in ${retryAfterMinutes} Minute${retryAfterMinutes === 1 ? '' : 'n'} erneut versuchen.`;
 }
 
-// Serve Stripe publishable key
-app.get('/api/config', (req, res) => {
-  res.json({
-    stripePublishableKey: process.env.STRIPE_PUBLISHABLE_KEY || 'pk_test_your_key_here'
-  });
-});
+function clearAdminCookie(res) {
+  res.setHeader('Set-Cookie', createClearedSessionCookie());
+}
 
-// Validate booking time (8:00 - 20:00)
-function validateBookingHours(dateTimeString) {
-  const date = new Date(dateTimeString);
-  const hour = date.getHours();
-  return hour >= 8 && hour < 20;
+function sendUnauthorized(res) {
+  clearAdminCookie(res);
+  return res.status(401).json({ error: 'Nicht autorisiert' });
 }
 
 // API Routes
 app.post('/api/bookings', async (req, res) => {
   try {
-    const { name, phone, numberOfBoards, startTime, endTime, paymentMethod } = req.body;
-    
-    // Validate booking hours (8:00 - 20:00)
-    if (!validateBookingHours(startTime)) {
-      return res.status(400).json({ 
-        error: 'Buchungen sind nur zwischen 8:00 und 20:00 Uhr möglich.' 
+    const validation = validateBookingRequest(req.body);
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: validation.errors[0],
+        errors: validation.errors
       });
     }
-    
-    if (!validateBookingHours(endTime)) {
-      return res.status(400).json({ 
-        error: 'Buchungen sind nur zwischen 8:00 und 20:00 Uhr möglich.' 
-      });
-    }
-    
-    // Calculate duration
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const durationMs = end - start;
-    const durationMinutes = Math.floor(durationMs / 60000);
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    
-    const priceResult = calculatePrice({ hours, minutes }, numberOfBoards);
-    const price = priceResult.price;
-    
-    const booking = {
-      id: Date.now().toString(),
+
+    const {
       name,
       phone,
       numberOfBoards,
       startTime,
       endTime,
-      duration: { hours, minutes },
+      paymentMethod,
+      duration
+    } = validation.booking;
+
+    const priceResult = calculatePrice(duration, numberOfBoards);
+    const price = priceResult.price;
+    
+    const booking = {
+      id: crypto.randomUUID(),
+      name,
+      phone,
+      numberOfBoards,
+      startTime,
+      endTime,
+      duration,
       price,
       pricePerBoard: priceResult.pricePerBoard,
       isDayRate: priceResult.isDayRate,
@@ -141,7 +99,7 @@ app.post('/api/bookings', async (req, res) => {
     // For PayPal, generate payment link
     if (paymentMethod === 'paypal') {
       // Get PayPal link from env or use default
-      let paypalLink = process.env.PAYPAL_LINK || 'https://paypal.me/romaniscool';
+      let paypalLink = process.env.PAYPAL_LINK || 'https://paypal.me/KlausOelfken';
       // Ensure link starts with https://
       if (!paypalLink.startsWith('http://') && !paypalLink.startsWith('https://')) {
         paypalLink = 'https://' + paypalLink;
@@ -173,8 +131,8 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
-// Public bookings endpoint (for normal booking page - not used currently)
-app.get('/api/bookings', async (req, res) => {
+// Keep customer data behind admin auth; POST /api/bookings remains public.
+app.get('/api/bookings', checkAdminSession, async (req, res) => {
   try {
     const bookings = await db.readBookings();
     res.json(bookings);
@@ -198,31 +156,63 @@ app.get('/api/admin/bookings', checkAdminSession, async (req, res) => {
 // Admin login
 app.post('/api/admin/login', async (req, res) => {
   try {
-    const { password } = req.body;
-    const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    
-    if (password === adminPassword) {
-      const sessionId = Date.now().toString() + Math.random().toString(36);
-      sessions.set(sessionId, { loggedIn: true, expires: Date.now() + 24 * 60 * 60 * 1000 }); // 24 hours
-      res.json({ success: true, sessionId });
-    } else {
-      res.status(401).json({ error: 'Falsches Passwort' });
+    const throttleState = getLoginThrottleState(req);
+    if (!throttleState.allowed) {
+      res.setHeader('Retry-After', String(throttleState.retryAfterSeconds));
+      return res.status(429).json({
+        error: formatRetryMessage(throttleState.retryAfterSeconds)
+      });
     }
+
+    const { password } = req.body;
+    const adminPassword = getAdminPassword();
+
+    if (!adminPassword) {
+      return res.status(503).json({ error: 'Admin-Passwort ist nicht konfiguriert' });
+    }
+
+    if (secureCompare(password, adminPassword)) {
+      clearFailedLogins(req);
+      const sessionId = createAdminSession();
+      res.setHeader('Set-Cookie', createSessionCookie(sessionId));
+      return res.json({ success: true });
+    }
+
+    const failedState = registerFailedLogin(req);
+    if (!failedState.allowed) {
+      res.setHeader('Retry-After', String(failedState.retryAfterSeconds));
+      return res.status(429).json({
+        error: formatRetryMessage(failedState.retryAfterSeconds)
+      });
+    }
+
+    res.status(401).json({ error: 'Falsches Passwort' });
   } catch (error) {
     res.status(500).json({ error: 'Login fehlgeschlagen' });
   }
 });
 
+app.post('/api/admin/logout', (req, res) => {
+  destroyAdminSession(req);
+  clearAdminCookie(res);
+  res.json({ success: true });
+});
+
+app.get('/api/admin/session', checkAdminSession, (req, res) => {
+  res.json({ authenticated: true });
+});
+
 // Check admin session
 function checkAdminSession(req, res, next) {
-  const sessionId = req.headers['x-session-id'];
-  const session = sessions.get(sessionId);
-  
-  if (session && session.loggedIn && session.expires > Date.now()) {
+  const sessionState = getAdminSession(req);
+
+  if (sessionState) {
+    req.adminSession = sessionState.session;
     next();
-  } else {
-    res.status(401).json({ error: 'Nicht autorisiert' });
+    return;
   }
+
+  sendUnauthorized(res);
 }
 
 // Get statistics
@@ -253,9 +243,6 @@ app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
       const bookingDate = new Date(b.createdAt);
       return bookingDate >= startDate;
     });
-    
-    // Get confirmed bookings
-    const confirmedBookings = allBookingsInPeriod.filter(b => b.status === 'confirmed');
     
     // Get unconfirmed bookings (pending or payment_pending)
     const unconfirmedBookings = allBookingsInPeriod.filter(b => 
@@ -308,6 +295,20 @@ app.post('/api/bookings/:id/notes', checkAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
+
+    if (typeof notes !== 'string') {
+      return res.status(400).json({ error: 'Notizen müssen Text sein' });
+    }
+
+    if (notes.length > 2000) {
+      return res.status(400).json({ error: 'Notizen dürfen maximal 2000 Zeichen lang sein' });
+    }
+
+    const booking = await db.findBookingById(id);
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
     
     await db.updateBooking(id, { notes });
     const updatedBooking = await db.findBookingById(id);
@@ -320,16 +321,19 @@ app.post('/api/bookings/:id/notes', checkAdminSession, async (req, res) => {
 
 app.post('/api/calculate-price', (req, res) => {
   try {
-    const { startTime, endTime, numberOfBoards } = req.body;
-    
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-    const durationMs = end - start;
-    const durationMinutes = Math.floor(durationMs / 60000);
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    
-    const priceResult = calculatePrice({ hours, minutes }, numberOfBoards);
+    const validation = validateBookingTimeSelection(req.body);
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: validation.errors[0],
+        errors: validation.errors
+      });
+    }
+
+    const priceResult = calculatePrice(
+      validation.booking.duration,
+      validation.booking.numberOfBoards
+    );
     
     res.json({ 
       price: priceResult.price,
@@ -341,13 +345,14 @@ app.post('/api/calculate-price', (req, res) => {
   }
 });
 
-// Start server
-initializeApp().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
+async function startServer() {
+  await initializeApp();
+
+  httpServer = app.listen(PORT, '0.0.0.0', () => {
     const os = require('os');
     const networkInterfaces = os.networkInterfaces();
     let localIP = 'localhost';
-    
+
     // Find local IP address
     for (const interfaceName in networkInterfaces) {
       const addresses = networkInterfaces[interfaceName];
@@ -359,7 +364,7 @@ initializeApp().then(() => {
       }
       if (localIP !== 'localhost') break;
     }
-    
+
     console.log(`\n🚀 Server running on http://localhost:${PORT}`);
     console.log(`📡 Network access: http://${localIP}:${PORT}`);
     console.log(`\n📱 To access from your phone:`);
@@ -367,18 +372,38 @@ initializeApp().then(() => {
     console.log(`   2. Open browser and go to: http://${localIP}:${PORT}`);
     console.log(`\n💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'JSON file (local)'}`);
   });
-});
+
+  return httpServer;
+}
+
+if (require.main === module) {
+  startServer().catch(error => {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  if (httpServer) {
+    await new Promise(resolve => httpServer.close(resolve));
+  }
   await db.closeDatabase();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
+  if (httpServer) {
+    await new Promise(resolve => httpServer.close(resolve));
+  }
   await db.closeDatabase();
   process.exit(0);
 });
 
+module.exports = {
+  app,
+  initializeApp,
+  startServer
+};

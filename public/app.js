@@ -1,5 +1,3 @@
-
-// DOM Elements
 const form = document.getElementById('bookingForm');
 const bookingDateInput = document.getElementById('bookingDate');
 const startTimeSelect = document.getElementById('startTime');
@@ -10,82 +8,215 @@ const submitBtn = document.getElementById('submitBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const dayRateMessage = document.getElementById('dayRateMessage');
+const durationButtons = document.querySelectorAll('.duration-btn');
+const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]');
+const customDurationButton = document.querySelector('[data-duration-custom]');
+const customTimeField = document.getElementById('customTimeField');
+const boardStepButtons = document.querySelectorAll('[data-board-step]');
+const paymentNote = document.getElementById('paymentNote');
+const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
 
-// Booking hours: 8:00 - 20:00 (in 30-minute intervals)
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
+const BOOKING_INTERVAL_MINUTES = 15;
+let selectedFixedDurationMinutes = null;
 
-// Generate time options (8:00 to 19:45 in 15-minute intervals)
-function generateTimeOptions() {
+function timeToMinutes(timeString) {
+    const [hour, minute] = timeString.split(':').map(Number);
+    return hour * 60 + minute;
+}
+
+function minutesToTime(totalMinutes) {
+    const hour = Math.floor(totalMinutes / 60);
+    const minute = totalMinutes % 60;
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+function getBoardCount() {
+    const numberOfBoards = parseInt(numberOfBoardsInput.value, 10);
+    return Number.isInteger(numberOfBoards) && numberOfBoards >= 1 ? numberOfBoards : null;
+}
+
+function generateTimeOptions({ includeClosingTime = false } = {}) {
     const options = [];
-    for (let hour = BOOKING_START_HOUR; hour < BOOKING_END_HOUR; hour++) {
-        for (let minute = 0; minute < 60; minute += 15) {
-            const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-            options.push(`<option value="${timeString}">${timeString} Uhr</option>`);
-        }
+    const firstMinute = BOOKING_START_HOUR * 60;
+    const lastMinute = BOOKING_END_HOUR * 60 - (includeClosingTime ? 0 : BOOKING_INTERVAL_MINUTES);
+
+    for (let totalMinutes = firstMinute; totalMinutes <= lastMinute; totalMinutes += BOOKING_INTERVAL_MINUTES) {
+        const timeString = minutesToTime(totalMinutes);
+        options.push(`<option value="${timeString}">${timeString} Uhr</option>`);
     }
+
     return options.join('');
 }
 
-// Populate time selects
-startTimeSelect.innerHTML = '<option value="">Bitte wählen</option>' + generateTimeOptions();
-endTimeSelect.innerHTML = '<option value="">Bitte wählen</option>' + generateTimeOptions();
+function buildEndTimeOptions(startTime) {
+    if (!startTime) {
+        return '<option value="">Bitte wählen</option>' + generateTimeOptions({ includeClosingTime: true });
+    }
 
-// Set minimum date to today
+    const startTotalMinutes = timeToMinutes(startTime);
+    let endOptions = '<option value="">Bitte wählen</option>';
+
+    for (let totalMinutes = BOOKING_START_HOUR * 60; totalMinutes <= BOOKING_END_HOUR * 60; totalMinutes += BOOKING_INTERVAL_MINUTES) {
+        if (totalMinutes > startTotalMinutes) {
+            const timeString = minutesToTime(totalMinutes);
+            endOptions += `<option value="${timeString}">${timeString} Uhr</option>`;
+        }
+    }
+
+    return endOptions;
+}
+
+function updateDurationButtons() {
+    const startTime = startTimeSelect.value;
+    const endTime = endTimeSelect.value;
+    const startMinutes = startTime ? timeToMinutes(startTime) : null;
+    const endMinutes = endTime ? timeToMinutes(endTime) : null;
+    const selectedDuration = startMinutes !== null && endMinutes !== null ? endMinutes - startMinutes : null;
+    const isCustomOpen = !customTimeField.classList.contains('hidden');
+
+    fixedDurationButtons.forEach(button => {
+        const duration = parseInt(button.dataset.durationMinutes, 10);
+        const wouldEndAfterClosing = startMinutes !== null && startMinutes + duration > BOOKING_END_HOUR * 60;
+
+        button.disabled = wouldEndAfterClosing;
+        button.classList.toggle(
+            'active',
+            !isCustomOpen &&
+                !wouldEndAfterClosing &&
+                (selectedFixedDurationMinutes === duration || selectedDuration === duration)
+        );
+    });
+
+    customDurationButton.classList.toggle('active', isCustomOpen);
+}
+
+function setEndTimeForDuration(durationMinutes) {
+    selectedFixedDurationMinutes = durationMinutes;
+    customTimeField.classList.add('hidden');
+
+    if (!startTimeSelect.value) {
+        startTimeSelect.focus();
+        updateDurationButtons();
+        return;
+    }
+
+    endTimeSelect.innerHTML = buildEndTimeOptions(startTimeSelect.value);
+
+    const endMinutes = timeToMinutes(startTimeSelect.value) + durationMinutes;
+    if (endMinutes > BOOKING_END_HOUR * 60) {
+        endTimeSelect.value = '';
+        updateDurationButtons();
+        calculatePrice();
+        return;
+    }
+
+    const endTime = minutesToTime(endMinutes);
+    if ([...endTimeSelect.options].some(option => option.value === endTime)) {
+        endTimeSelect.value = endTime;
+        updateDurationButtons();
+        calculatePrice();
+    }
+}
+
+function showCustomTimeField() {
+    selectedFixedDurationMinutes = null;
+    customTimeField.classList.remove('hidden');
+
+    if (!startTimeSelect.value) {
+        startTimeSelect.focus();
+        endTimeSelect.value = '';
+    } else {
+        endTimeSelect.focus();
+    }
+
+    updateDurationButtons();
+    calculatePrice();
+}
+
+function resetBookingUi() {
+    totalPriceDisplay.textContent = '0,00 €';
+    dayRateMessage.classList.add('hidden');
+    paymentNote.classList.add('hidden');
+    endTimeSelect.innerHTML = buildEndTimeOptions();
+    customTimeField.classList.add('hidden');
+    selectedFixedDurationMinutes = null;
+    updateDurationButtons();
+}
+
+startTimeSelect.innerHTML = '<option value="">Bitte wählen</option>' + generateTimeOptions();
+endTimeSelect.innerHTML = buildEndTimeOptions();
+
 const today = new Date();
 today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
 bookingDateInput.min = today.toISOString().slice(0, 10);
+bookingDateInput.value = bookingDateInput.value || bookingDateInput.min;
 
-// Update end time options when start time changes (only show times after start time)
 startTimeSelect.addEventListener('change', () => {
-    if (startTimeSelect.value) {
-        const startTime = startTimeSelect.value;
-        const [startHour, startMinute] = startTime.split(':').map(Number);
-        
-        // Regenerate end time options, filtering out times before start time
-        let endOptions = '<option value="">Bitte wählen</option>';
-        for (let hour = BOOKING_START_HOUR; hour < BOOKING_END_HOUR; hour++) {
-            for (let minute = 0; minute < 60; minute += 15) {
-                if (hour > startHour || (hour === startHour && minute > startMinute)) {
-                    const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-                    endOptions += `<option value="${timeString}">${timeString} Uhr</option>`;
-                }
-            }
-        }
-        endTimeSelect.innerHTML = endOptions;
-        
-        // Clear end time if it's now invalid
-        if (endTimeSelect.value && endTimeSelect.value <= startTime) {
-            endTimeSelect.value = '';
-        }
-        
-        calculatePrice();
-    } else {
-        // Reset end time options if start time is cleared
-        endTimeSelect.innerHTML = '<option value="">Bitte wählen</option>' + generateTimeOptions();
-        calculatePrice();
+    const previousEndTime = endTimeSelect.value;
+    endTimeSelect.innerHTML = buildEndTimeOptions(startTimeSelect.value);
+
+    if ([...endTimeSelect.options].some(option => option.value === previousEndTime)) {
+        endTimeSelect.value = previousEndTime;
     }
+
+    if (customTimeField.classList.contains('hidden') && selectedFixedDurationMinutes !== null) {
+        setEndTimeForDuration(selectedFixedDurationMinutes);
+        return;
+    }
+
+    updateDurationButtons();
+    calculatePrice();
 });
 
-// Calculate price when inputs change
-[bookingDateInput, startTimeSelect, endTimeSelect, numberOfBoardsInput].forEach(input => {
+endTimeSelect.addEventListener('change', () => {
+    updateDurationButtons();
+    calculatePrice();
+});
+
+[bookingDateInput, numberOfBoardsInput].forEach(input => {
     input.addEventListener('change', calculatePrice);
+    input.addEventListener('input', calculatePrice);
 });
 
-// Calculate price function
+fixedDurationButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        setEndTimeForDuration(parseInt(button.dataset.durationMinutes, 10));
+    });
+});
+
+customDurationButton.addEventListener('click', showCustomTimeField);
+
+boardStepButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const step = parseInt(button.dataset.boardStep, 10);
+        const currentValue = parseInt(numberOfBoardsInput.value, 10) || 1;
+        numberOfBoardsInput.value = Math.max(1, currentValue + step);
+        numberOfBoardsInput.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+});
+
+paymentMethodInputs.forEach(input => {
+    input.addEventListener('change', () => {
+        const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value;
+        paymentNote.classList.toggle('hidden', selectedPaymentMethod !== 'cash');
+    });
+});
+
 async function calculatePrice() {
     const bookingDate = bookingDateInput.value;
     const startTime = startTimeSelect.value;
     const endTime = endTimeSelect.value;
-    const numberOfBoards = parseInt(numberOfBoardsInput.value) || 1;
+    const numberOfBoards = getBoardCount();
 
-    if (!bookingDate || !startTime || !endTime) {
+    if (!bookingDate || !startTime || !endTime || numberOfBoards === null) {
         totalPriceDisplay.textContent = '0,00 €';
         dayRateMessage.classList.add('hidden');
+        updateDurationButtons();
         return;
     }
 
-    // Use selected date for both start and end
     const startDateTime = `${bookingDate}T${startTime}:00`;
     const endDateTime = `${bookingDate}T${endTime}:00`;
 
@@ -105,11 +236,11 @@ async function calculatePrice() {
         const data = await response.json();
         if (data.price !== undefined) {
             totalPriceDisplay.textContent = `${data.price.toFixed(2)} €`;
-            
-            // Show day rate message only for 24h+ bookings
+            updateDurationButtons();
+
             if (data.isDayRate) {
                 const dayRateDetails = document.getElementById('dayRateDetails');
-                dayRateDetails.textContent = `Tagesmiete (24h) wurde aktiviert.`;
+                dayRateDetails.textContent = 'Tagesmiete (24h) wurde aktiviert.';
                 dayRateMessage.classList.remove('hidden');
             } else {
                 dayRateMessage.classList.add('hidden');
@@ -120,48 +251,45 @@ async function calculatePrice() {
     }
 }
 
-// Form submission
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const formData = new FormData(form);
     const paymentMethod = formData.get('paymentMethod');
     const privacyCheck = document.getElementById('privacyCheck').checked;
     const safetyCheck = document.getElementById('safetyCheck').checked;
-    
-    // Validate checkboxes
+
     if (!privacyCheck || !safetyCheck) {
-        showErrorMessage('Bitte akzeptiere die Datenschutzerklärung und bestätige, dass du den Leitfaden gelesen hast.');
+        showErrorMessage('Bitte akzeptiere Datenschutz und Leitfaden.');
         return;
     }
-    
-    // Hide previous messages
+
     successMessage.classList.add('hidden');
     errorMessage.classList.add('hidden');
     dayRateMessage.classList.add('hidden');
-    
-    // Disable submit button
+
     submitBtn.disabled = true;
     submitBtn.textContent = 'Wird verarbeitet...';
-    
+
     try {
-        // Get date and times
         const bookingDate = formData.get('bookingDate');
         const startTime = formData.get('startTime');
         const endTime = formData.get('endTime');
-        
-        const startDateTime = `${bookingDate}T${startTime}:00`;
-        const endDateTime = `${bookingDate}T${endTime}:00`;
-        
+
+        if (!endTime) {
+            showErrorMessage('Bitte wähle eine Dauer.');
+            return;
+        }
+
         const bookingData = {
             name: formData.get('name'),
             phone: formData.get('phone'),
-            numberOfBoards: parseInt(formData.get('numberOfBoards')),
-            startTime: startDateTime,
-            endTime: endDateTime,
-            paymentMethod: paymentMethod
+            numberOfBoards: parseInt(formData.get('numberOfBoards'), 10),
+            startTime: `${bookingDate}T${startTime}:00`,
+            endTime: `${bookingDate}T${endTime}:00`,
+            paymentMethod
         };
-        
+
         const response = await fetch('/api/bookings', {
             method: 'POST',
             headers: {
@@ -169,41 +297,30 @@ form.addEventListener('submit', async (e) => {
             },
             body: JSON.stringify(bookingData)
         });
-        
+
         const data = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(data.error || 'Fehler bei der Buchung');
         }
-        
+
         if (paymentMethod === 'paypal') {
-            // PayPal payment - redirect to PayPal link
             if (data.booking.paypalLink) {
-                // Create PayPal.me link with amount
                 let paypalUrl = data.booking.paypalLink;
-                
-                // If it's a paypal.me link, add the amount
+
                 if (paypalUrl.includes('paypal.me')) {
-                    // Ensure URL format is correct
                     if (!paypalUrl.startsWith('http://') && !paypalUrl.startsWith('https://')) {
                         paypalUrl = 'https://' + paypalUrl;
                     }
-                    // Remove trailing slash if present
                     paypalUrl = paypalUrl.replace(/\/$/, '');
-                    // Format amount for PayPal.me - always use 2 decimal places for better compatibility
-                    const amount = parseFloat(data.booking.paypalAmount);
-                    const formattedAmount = amount.toFixed(2);
-                    // Add amount to the link (PayPal.me format: /amount)
-                    paypalUrl = `${paypalUrl}/${formattedAmount}`;
+                    paypalUrl = `${paypalUrl}/${parseFloat(data.booking.paypalAmount).toFixed(2)}`;
                 }
-                
-                // Show message with PayPal button (no automatic redirect)
+
                 showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
             } else {
                 showSuccessMessage(data.booking, 'paypal', true);
             }
         } else {
-            // Cash payment - show success message
             showSuccessMessage(data.booking, 'cash');
         }
     } catch (error) {
@@ -211,60 +328,52 @@ form.addEventListener('submit', async (e) => {
         showErrorMessage(error.message || 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Buchung abschließen';
+        submitBtn.textContent = 'Reservieren';
     }
 });
 
-
-// Show success message
 function showSuccessMessage(booking, paymentMethod, needsVerification = false, paypalUrl = null) {
     let details = '';
     const paypalButton = document.getElementById('paypalLinkButton');
-    
+
     if (paymentMethod === 'cash') {
-        details = `Deine Buchung wurde erstellt! Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen bereitgestellten Umschlag, beschrifte diesen mit deinem Buchungsnamen (${booking.name || 'deinem Namen'}) und lege ihn in den markierten Briefkasten.`;
+        details = `Deine Buchung wurde erstellt. Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen beschrifteten Umschlag.`;
         paypalButton.style.display = 'none';
         paypalButton.classList.add('hidden');
     } else if (paymentMethod === 'paypal') {
         if (needsVerification) {
-            details = `Deine Buchung wurde erstellt, ist aber noch nicht bestätigt! Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€).`;
+            details = `Deine Buchung wurde erstellt. Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€).`;
         } else {
-            details = `Deine Buchung wurde erfolgreich abgeschlossen! PayPal-Zahlung: ${booking.price.toFixed(2)}€.`;
+            details = `Deine Buchung wurde erfolgreich abgeschlossen. PayPal-Zahlung: ${booking.price.toFixed(2)}€.`;
         }
-        
-        // Show PayPal button if URL is provided
+
         if (paypalUrl) {
             paypalButton.href = paypalUrl;
-            paypalButton.style.display = 'inline-block';
+            paypalButton.style.display = 'inline-flex';
             paypalButton.classList.remove('hidden');
-            // Remove any onclick handler - let the native link behavior work (best for Safari iPhone)
             paypalButton.onclick = null;
         } else {
             paypalButton.style.display = 'none';
             paypalButton.classList.add('hidden');
         }
     } else {
-        details = `Deine Buchung wurde erfolgreich abgeschlossen! Zahlung erhalten: ${booking.price.toFixed(2)}€`;
+        details = `Deine Buchung wurde erfolgreich abgeschlossen. Zahlung erhalten: ${booking.price.toFixed(2)}€.`;
         paypalButton.style.display = 'none';
         paypalButton.classList.add('hidden');
     }
-    
+
     document.getElementById('successDetails').textContent = details;
     successMessage.classList.remove('hidden');
     form.reset();
-    totalPriceDisplay.textContent = '0,00 €';
-    dayRateMessage.classList.add('hidden');
-    
-    // Scroll to success message
+    resetBookingUi();
+
     successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// Show error message
 function showErrorMessage(message) {
     document.getElementById('errorDetails').textContent = message;
     errorMessage.classList.remove('hidden');
-    
-    // Scroll to error message
     errorMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
+updateDurationButtons();

@@ -38,7 +38,7 @@
 2. GitHub-Repository verbinden
 3. PostgreSQL-Datenbank hinzufügen
 4. Environment-Variablen setzen:
-   - `PAYPAL_LINK=https://paypal.me/romaniscool`
+   - `PAYPAL_LINK=https://paypal.me/KlausOelfken`
    - `ADMIN_PASSWORD=dein_sicheres_passwort`
    - `DATABASE_URL` (automatisch von Railway)
 5. Deploy!
@@ -57,7 +57,7 @@
 Erstelle `.env.production` oder setze in Railway/Render:
 
 ```
-PAYPAL_LINK=https://paypal.me/romaniscool
+PAYPAL_LINK=https://paypal.me/KlausOelfken
 ADMIN_PASSWORD=dein_sicheres_passwort_123
 PORT=3000
 NODE_ENV=production
@@ -113,4 +113,3 @@ Sag mir, welche Optionen du bevorzugst, dann helfe ich dir bei der Implementieru
 1. **Admin-Sicherheit:** Option A (Login) oder B (Token)?
 2. **Datenbank:** SQLite oder PostgreSQL?
 3. **Hosting:** Railway oder Render?
-
