@@ -8,6 +8,12 @@ const path = require('path');
 let pool = null;
 let usePostgreSQL = false;
 
+function getBookingsFile() {
+  return process.env.BOOKINGS_FILE
+    ? path.resolve(process.env.BOOKINGS_FILE)
+    : path.join(__dirname, '..', 'bookings.json');
+}
+
 // Initialize database connection
 async function initDatabase() {
   if (process.env.DATABASE_URL) {
@@ -123,10 +129,14 @@ async function readBookings() {
     }));
   } else {
     // JSON file fallback
-    const BOOKINGS_FILE = path.join(__dirname, '..', 'bookings.json');
+    const BOOKINGS_FILE = getBookingsFile();
     try {
       const data = await fs.readFile(BOOKINGS_FILE, 'utf8');
-      return JSON.parse(data);
+      return JSON.parse(data).sort((a, b) => {
+        const left = new Date(a.createdAt || 0).getTime();
+        const right = new Date(b.createdAt || 0).getTime();
+        return right - left;
+      });
     } catch (error) {
       return [];
     }
@@ -166,10 +176,15 @@ async function saveBooking(booking) {
     ]);
   } else {
     // JSON file fallback
-    const BOOKINGS_FILE = path.join(__dirname, '..', 'bookings.json');
+    const BOOKINGS_FILE = getBookingsFile();
     const bookings = await readBookings();
-    bookings.push(booking);
-    await fs.writeFile(BOOKINGS_FILE, JSON.stringify(bookings, null, 2));
+    const nextBookings = [...bookings, booking].sort((a, b) => {
+      const left = new Date(a.createdAt || 0).getTime();
+      const right = new Date(b.createdAt || 0).getTime();
+      return right - left;
+    });
+
+    await fs.writeFile(BOOKINGS_FILE, JSON.stringify(nextBookings, null, 2));
   }
 }
 
@@ -209,7 +224,7 @@ async function updateBooking(bookingId, updates) {
     );
   } else {
     // JSON file fallback
-    const BOOKINGS_FILE = path.join(__dirname, '..', 'bookings.json');
+    const BOOKINGS_FILE = getBookingsFile();
     const bookings = await readBookings();
     const index = bookings.findIndex(b => b.id === bookingId);
     
@@ -218,6 +233,24 @@ async function updateBooking(bookingId, updates) {
       await fs.writeFile(BOOKINGS_FILE, JSON.stringify(bookings, null, 2));
     }
   }
+}
+
+async function deleteBooking(bookingId) {
+  if (usePostgreSQL) {
+    const result = await pool.query('DELETE FROM bookings WHERE id = $1', [bookingId]);
+    return result.rowCount > 0;
+  }
+
+  const BOOKINGS_FILE = getBookingsFile();
+  const bookings = await readBookings();
+  const remainingBookings = bookings.filter(booking => booking.id !== bookingId);
+
+  if (remainingBookings.length === bookings.length) {
+    return false;
+  }
+
+  await fs.writeFile(BOOKINGS_FILE, JSON.stringify(remainingBookings, null, 2));
+  return true;
 }
 
 // Find booking by ID
@@ -278,6 +311,7 @@ module.exports = {
   readBookings,
   saveBooking,
   updateBooking,
+  deleteBooking,
   findBookingById,
   closeDatabase
 };

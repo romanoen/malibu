@@ -7,352 +7,678 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="stylesheet" href="styles.css">
     <style>
+        :root {
+            --admin-bg: #efede6;
+            --admin-page: #f7f5ef;
+            --admin-surface: #fcfbf8;
+            --admin-surface-strong: #ffffff;
+            --admin-line: #ddd8cd;
+            --admin-text: #182320;
+            --admin-muted: #68716c;
+            --admin-accent: #2f6b5f;
+            --admin-accent-strong: #214d44;
+            --admin-accent-soft: #dce8e3;
+            --admin-warning: #8a6331;
+            --admin-warning-soft: #f2e8d8;
+            --admin-info: #395f79;
+            --admin-info-soft: #dce8f0;
+            --admin-danger: #934d45;
+            --admin-danger-soft: #f4e3e0;
+            --admin-success: #2c695a;
+            --admin-success-soft: #dcebe5;
+            --admin-shadow: 0 24px 60px rgba(21, 30, 27, 0.10);
+            --admin-shadow-soft: 0 10px 24px rgba(21, 30, 27, 0.08);
+            --admin-radius-xl: 28px;
+            --admin-radius-lg: 20px;
+            --admin-radius-md: 14px;
+            --admin-radius-sm: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 25%, #ff8c42 50%, #ffa07a 75%, #ffb347 100%);
+            margin: 0;
             min-height: 100vh;
-            padding: 20px;
+            padding: 24px;
+            font-family: "Helvetica Neue", "Avenir Next", "Segoe UI Variable", "Segoe UI", sans-serif;
+            color: var(--admin-text);
+            background: linear-gradient(180deg, var(--admin-page) 0%, var(--admin-bg) 100%);
         }
-        
-        .admin-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 20px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-            padding: 30px;
-        }
-        
+
+        .admin-container,
         .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            background: white;
+            border: 1px solid rgba(24, 35, 32, 0.06);
+            box-shadow: var(--admin-shadow);
+        }
+
+        .admin-container {
+            max-width: 1320px;
+            margin: 0 auto;
+            background: var(--admin-surface);
+            border-radius: var(--admin-radius-xl);
+            padding: 28px;
+        }
+
+        .login-container {
+            max-width: 440px;
+            margin: 86px auto;
+            background: var(--admin-surface-strong);
+            border-radius: var(--admin-radius-xl);
             padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
         }
-        
+
+        .login-kicker,
+        .section-kicker {
+            margin: 0 0 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--admin-muted);
+        }
+
+        .login-container h1,
+        .topbar h1 {
+            margin: 0;
+            color: var(--admin-text);
+        }
+
         .login-container h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            color: #ff6b35;
+            font-size: 2.6rem;
+            line-height: 1;
+            letter-spacing: 0;
         }
-        
+
+        .topbar h1 {
+            font-size: 2.05rem;
+            line-height: 1.1;
+            letter-spacing: 0;
+            font-weight: 720;
+        }
+
+        .login-copy,
+        .topbar-copy {
+            margin: 14px 0 0;
+            color: var(--admin-muted);
+            line-height: 1.55;
+            max-width: 34rem;
+        }
+
+        .topbar .section-kicker {
+            margin-bottom: 6px;
+            color: var(--admin-accent);
+            letter-spacing: 0.08em;
+        }
+
+        .topbar-copy {
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+
+        .login-form input,
+        .notes-section textarea {
+            border: 1px solid var(--admin-line);
+            border-radius: var(--admin-radius-md);
+            background: rgba(255, 255, 255, 0.92);
+            color: var(--admin-text);
+            font: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
         .login-form input {
             width: 100%;
-            padding: 12px;
-            margin-bottom: 20px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
+            padding: 15px 16px;
+            margin: 26px 0 18px;
             font-size: 16px;
         }
-        
-        .login-form button {
-            width: 100%;
-            padding: 12px;
-            background: #ff6b35;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
+
+        .login-form input:focus,
+        .notes-section textarea:focus {
+            outline: none;
+            border-color: rgba(47, 107, 95, 0.65);
+            box-shadow: 0 0 0 4px rgba(47, 107, 95, 0.12);
         }
-        
-        .login-form button:hover {
-            background: #f7931e;
+
+        .topbar {
+            margin-bottom: 26px;
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: flex-end;
+            padding: 0 0 14px;
+            color: var(--admin-text);
+            background: transparent;
+            border-bottom: 1px solid rgba(24, 35, 32, 0.10);
         }
-        
+
+        .topbar-intro {
+            flex: 1;
+            padding: 0;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
+        }
+
+        .topbar .btn-secondary {
+            align-self: flex-end;
+        }
+
         .dashboard {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 18px;
             margin-bottom: 30px;
         }
-        
+
         .stat-card {
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-            color: white;
-            padding: 25px;
-            border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            background: rgba(255, 255, 255, 0.88);
+            color: var(--admin-text);
+            padding: 24px;
+            border-radius: var(--admin-radius-lg);
+            box-shadow: var(--admin-shadow-soft);
+            border: 1px solid rgba(24, 35, 32, 0.06);
         }
-        
-        .stat-card:first-child {
-            border-radius: 20px;
-        }
-        
+
         .stat-card h3 {
-            margin: 0 0 10px 0;
-            font-size: 0.9rem;
-            opacity: 0.9;
+            margin: 0;
+            font-size: 0.86rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: var(--admin-muted);
         }
-        
+
         .stat-card .value {
-            font-size: 2rem;
-            font-weight: bold;
-            margin: 10px 0;
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: -0.05em;
+            margin: 16px 0 10px;
         }
-        
+
+        .stat-subline,
+        .period-label {
+            color: var(--admin-muted);
+            font-size: 0.95rem;
+            line-height: 1.45;
+            min-height: 1.45em;
+        }
+
         .period-selector {
             display: flex;
             gap: 10px;
-            margin-top: 15px;
+            flex-wrap: wrap;
+            margin-top: 18px;
         }
-        
-        .period-btn {
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 5px;
-            color: white;
+
+        .period-btn,
+        .btn {
+            appearance: none;
+            border: 1px solid transparent;
+            border-radius: 999px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-weight: 700;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
         }
-        
+
+        .period-btn {
+            padding: 10px 16px;
+            background: rgba(24, 35, 32, 0.06);
+            border-color: rgba(24, 35, 32, 0.05);
+            color: var(--admin-text);
+            font-size: 0.86rem;
+        }
+
         .period-btn.active {
-            background: rgba(255, 255, 255, 0.4);
-            font-weight: bold;
+            background: var(--admin-accent);
+            color: white;
+            box-shadow: 0 10px 20px rgba(47, 107, 95, 0.18);
         }
-        
+
+        .btn {
+            padding: 10px 16px;
+            font-size: 0.88rem;
+            line-height: 1;
+        }
+
+        .btn:hover,
+        .period-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary,
+        .btn-verify {
+            background: var(--admin-accent);
+            color: white;
+            box-shadow: 0 12px 22px rgba(47, 107, 95, 0.18);
+        }
+
+        .btn-primary:hover,
+        .btn-verify:hover {
+            background: var(--admin-accent-strong);
+        }
+
+        .btn-secondary {
+            background: rgba(24, 35, 32, 0.06);
+            color: var(--admin-text);
+            border-color: rgba(24, 35, 32, 0.08);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(24, 35, 32, 0.10);
+        }
+
+        .btn-delete {
+            background: transparent;
+            color: var(--admin-danger);
+            border-color: rgba(147, 77, 69, 0.22);
+        }
+
+        .btn-delete:hover {
+            background: var(--admin-danger-soft);
+        }
+
+        .btn:disabled,
+        .btn-verify:disabled {
+            background: #a7b4af;
+            color: white;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+            border-color: transparent;
+        }
+
+        .feedback-banner {
+            padding: 14px 18px;
+            border-radius: var(--admin-radius-md);
+            margin-bottom: 22px;
+            font-weight: 600;
+            line-height: 1.45;
+            border: 1px solid transparent;
+        }
+
+        .feedback-success {
+            background: var(--admin-success-soft);
+            color: var(--admin-success);
+            border-color: rgba(44, 105, 90, 0.18);
+        }
+
+        .feedback-error {
+            background: var(--admin-danger-soft);
+            color: var(--admin-danger);
+            border-color: rgba(147, 77, 69, 0.18);
+        }
+
+        .feedback-info {
+            background: var(--admin-info-soft);
+            color: var(--admin-info);
+            border-color: rgba(57, 95, 121, 0.18);
+        }
+
         .day-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
-        
+
         .day-header {
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-radius: 10px;
+            width: 100%;
+            background: #e7ddd0;
+            padding: 18px 20px;
+            border-radius: var(--admin-radius-lg);
             cursor: pointer;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 12px;
             margin-bottom: 10px;
-            border: 2px solid #dee2e6;
-            transition: all 0.3s ease;
+            border: 1px solid rgba(112, 95, 74, 0.18);
+            box-shadow: none;
+            transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+            text-align: left;
         }
-        
+
         .day-header:hover {
-            background: #e9ecef;
-            border-color: #ff6b35;
+            transform: translateY(-1px);
+            border-color: rgba(112, 95, 74, 0.28);
+            background: #e2d6c7;
         }
-        
+
         .day-header.today {
-            background: #e8f5e9;
-            border-color: #4caf50;
+            background: #d9e5da;
+            border-color: rgba(47, 107, 95, 0.22);
         }
-        
-        .day-header.today:hover {
-            background: #c8e6c9;
-            border-color: #4caf50;
-        }
-        
+
         .day-header h3 {
             margin: 0;
-            color: #333;
+            color: var(--admin-text);
+            font-size: 1.05rem;
         }
-        
-        .day-header .count {
-            background: #ff6b35;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-        
-        .day-header .pending-badge {
-            background: #dc3545;
-            color: white;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: bold;
-            margin-left: 8px;
-            display: inline-block;
-        }
-        
-        .day-header .count-container {
+
+        .day-meta {
             display: flex;
             align-items: center;
             gap: 8px;
             flex-wrap: wrap;
+            justify-content: flex-end;
         }
-        
+
+        .day-header .count,
+        .day-header .pending-badge,
+        .day-toggle {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            padding: 7px 12px;
+        }
+
+        .day-header .count {
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--admin-text);
+        }
+
+        .day-header .pending-badge {
+            background: var(--admin-warning-soft);
+            color: var(--admin-warning);
+        }
+
+        .day-toggle {
+            background: rgba(255, 255, 255, 0.58);
+            color: var(--admin-muted);
+        }
+
         .day-bookings {
             display: none;
-            padding: 0 10px;
+            padding: 4px 0 0;
         }
-        
+
         .day-bookings.expanded {
-            display: block;
+            display: grid;
+            gap: 12px;
+            padding: 4px 6px 0;
         }
-        
+
         .booking-card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            border-left: 4px solid #ff6b35;
+            background: #fffdf9;
+            border-radius: var(--admin-radius-lg);
+            padding: 22px;
+            box-shadow: 0 8px 18px rgba(21, 30, 27, 0.05);
+            border: 1px solid rgba(24, 35, 32, 0.06);
         }
-        
+
         .booking-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 15px;
+            gap: 18px;
+            margin-bottom: 16px;
             flex-wrap: wrap;
-            gap: 10px;
-        }
-        
-        .booking-info h3 {
-            margin: 0 0 5px 0;
-            color: #333;
-        }
-        
-        .booking-info p {
-            margin: 5px 0;
-            color: #666;
-            font-size: 0.9rem;
         }
 
-        .time-line {
-            margin-top: 4px;
-            margin-bottom: 6px;
+        .booking-main {
+            flex: 1 1 380px;
+            min-width: 0;
         }
 
-        .time-range {
+        .booking-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 8px;
+        }
+
+        .booking-main h3 {
+            margin: 0;
+            color: var(--admin-text);
+            font-size: 1.18rem;
+        }
+
+        .booking-schedule {
+            margin: 0 0 14px;
+            font-size: 1.42rem;
+            line-height: 1;
+            letter-spacing: -0.04em;
             font-weight: 700;
-            font-size: 1.2rem;
+            color: var(--admin-accent-strong);
         }
-        
+
+        .booking-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(24, 35, 32, 0.06);
+            color: var(--admin-text);
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+
+        .meta-pill-verified {
+            background: var(--admin-success-soft);
+            color: var(--admin-success);
+        }
+
+        .booking-phone {
+            margin: 0;
+            color: var(--admin-muted);
+            font-size: 0.95rem;
+        }
+
         .booking-actions {
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: center;
         }
-        
+
         .status-badge {
-            padding: 6px 15px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 10px;
-            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
         }
-        
+
         .status-pending {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--admin-warning-soft);
+            color: var(--admin-warning);
         }
-        
+
         .status-payment_pending {
-            background: #d1ecf1;
-            color: #0c5460;
+            background: var(--admin-info-soft);
+            color: var(--admin-info);
         }
-        
+
         .status-confirmed {
-            background: #d4edda;
-            color: #155724;
+            background: var(--admin-success-soft);
+            color: var(--admin-success);
         }
-        
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-verify {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-verify:hover {
-            background: #218838;
-        }
-        
-        .btn-verify:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-        }
-        
+
         .notes-section {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #dee2e6;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(24, 35, 32, 0.08);
         }
-        
+
+        .notes-label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: var(--admin-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
         .notes-section textarea {
             width: 100%;
-            min-height: 80px;
-            padding: 10px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-family: inherit;
+            min-height: 92px;
+            padding: 14px 15px;
             font-size: 0.9rem;
             resize: vertical;
         }
-        
-        .notes-section button {
-            margin-top: 10px;
-            background: #007bff;
-            color: white;
+
+        .notes-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 12px;
         }
-        
-        .notes-section button:hover {
-            background: #0056b3;
-        }
-        
+
         .notes-display {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
+            background: rgba(24, 35, 32, 0.05);
+            padding: 12px 14px;
+            border-radius: var(--admin-radius-md);
             margin-top: 10px;
             font-size: 0.9rem;
-            color: #333;
+            color: var(--admin-text);
         }
-        
+
         .hidden {
             display: none !important;
         }
-        
+
         .error-message {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--admin-danger-soft);
+            color: var(--admin-danger);
             padding: 15px;
-            border-radius: 8px;
+            border-radius: var(--admin-radius-md);
             margin-bottom: 20px;
+            border: 1px solid rgba(147, 77, 69, 0.18);
+        }
+
+        .empty-state {
+            padding: 28px;
+            border-radius: var(--admin-radius-lg);
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            box-shadow: var(--admin-shadow-soft);
+            color: var(--admin-muted);
+            line-height: 1.55;
+        }
+
+        .empty-state strong {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--admin-text);
+            font-size: 1rem;
+        }
+
+        .new-booking-notification {
+            position: fixed;
+            top: 22px;
+            right: 22px;
+            background: rgba(24, 35, 32, 0.92);
+            color: white;
+            padding: 14px 18px;
+            border-radius: 16px;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            cursor: pointer;
+            max-width: 280px;
+            line-height: 1.4;
+        }
+
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 16px;
+            }
+
+            .login-container,
+            .admin-container {
+                padding: 22px;
+            }
+
+            .login-container h1 {
+                font-size: 2.1rem;
+            }
+
+            .topbar h1 {
+                font-size: 1.75rem;
+            }
+
+            .topbar,
+            .booking-header,
+            .booking-topline {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .booking-actions,
+            .day-meta {
+                justify-content: flex-start;
+            }
+
+            .btn,
+            .period-btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .new-booking-notification {
+                left: 16px;
+                right: 16px;
+                top: auto;
+                bottom: 16px;
+                max-width: none;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Login Screen -->
     <div id="loginScreen" class="login-container">
-        <h1>🔐 Admin Login</h1>
+        <p class="login-kicker">Malibu SUP</p>
+        <h1>Admin</h1>
+        <p class="login-copy">Buchungen, Zahlungen und Notizen in einem ruhigen, klaren Board verwalten.</p>
         <form class="login-form" id="loginForm">
+            <label for="passwordInput" class="sr-only">Passwort</label>
             <input type="password" id="passwordInput" placeholder="Passwort" required>
-            <button type="submit">Anmelden</button>
+            <button type="submit" class="btn btn-primary">Anmelden</button>
         </form>
         <div id="loginError" class="error-message hidden"></div>
     </div>
-    
-    <!-- Admin Dashboard -->
-    <div id="adminDashboard" class="admin-container hidden">
-        <header style="margin-bottom: 30px; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); color: white; padding: 25px 30px; border-radius: 15px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); display: flex; justify-content: space-between; align-items: center;">
-            <h1 style="margin: 0; font-size: 1.8rem;">🏄 Malibu SUP Admin Page</h1>
-            <button onclick="logout()" style="padding: 10px 20px; background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.3s ease;">Abmelden</button>
-        </header>
-        
-        <!-- Statistics Dashboard -->
+
+        <div id="adminDashboard" class="admin-container hidden">
+            <div class="topbar" role="banner">
+                <div class="topbar-intro">
+                    <p class="section-kicker">Malibu SUP</p>
+                    <h1>Buchungen verwalten</h1>
+                </div>
+                <button onclick="logout()" class="btn btn-secondary">Abmelden</button>
+            </div>
+
+        <div id="adminFeedback" class="feedback-banner hidden"></div>
+
         <div class="dashboard">
             <div class="stat-card">
-                <h3>💰 Umsatz</h3>
-                <div class="value" id="totalRevenue">0,00 €</div>
-                <div id="unconfirmedRevenue" style="font-size: 0.9rem; opacity: 0.9; margin-top: 8px;"></div>
+                <h3>Umsatz</h3>
+                <div class="value" id="totalRevenue">0,00 EUR</div>
+                <div id="unconfirmedRevenue" class="stat-subline"></div>
                 <div class="period-selector">
                     <button class="period-btn" onclick="loadStatistics('week', true)">Woche</button>
                     <button class="period-btn active" onclick="loadStatistics('month', true)">Monat</button>
@@ -360,13 +686,12 @@
                 </div>
             </div>
             <div class="stat-card">
-                <h3>📊 Buchungen</h3>
+                <h3>Buchungen</h3>
                 <div class="value" id="totalBookings">0</div>
-                <div style="margin-top: 15px; opacity: 0.9; font-size: 0.9rem;" id="periodLabel">Dieser Monat</div>
+                <div class="period-label" id="periodLabel">Dieser Monat</div>
             </div>
         </div>
-        
-        <!-- Bookings by Day -->
+
         <div id="bookingsList"></div>
     </div>
 
@@ -379,6 +704,7 @@
         let lastBookingId = null;
         let isPolling = false;
         let hasLoadedOnce = false;
+        let feedbackTimeoutId = null;
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -395,6 +721,57 @@
                 .replace(/</g, '\\u003c')
                 .replace(/\u2028/g, '\\u2028')
                 .replace(/\u2029/g, '\\u2029');
+        }
+
+        function getDayElementId(dateKey) {
+            const safeDateKey = String(dateKey)
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .toLowerCase();
+
+            return `day-${safeDateKey}`;
+        }
+
+        function formatCurrency(amount) {
+            return Number.parseFloat(amount || 0).toLocaleString('de-DE', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }) + ' EUR';
+        }
+
+        async function readJson(response) {
+            try {
+                return await response.json();
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function clearAdminFeedback() {
+            const feedback = document.getElementById('adminFeedback');
+            feedback.className = 'feedback-banner hidden';
+            feedback.textContent = '';
+
+            if (feedbackTimeoutId) {
+                clearTimeout(feedbackTimeoutId);
+                feedbackTimeoutId = null;
+            }
+        }
+
+        function showAdminFeedback(message, tone = 'success') {
+            const feedback = document.getElementById('adminFeedback');
+            feedback.textContent = message;
+            feedback.className = `feedback-banner feedback-${tone}`;
+
+            if (feedbackTimeoutId) {
+                clearTimeout(feedbackTimeoutId);
+            }
+
+            feedbackTimeoutId = setTimeout(() => {
+                clearAdminFeedback();
+            }, 4000);
         }
 
         async function adminFetch(url, options = {}) {
@@ -415,14 +792,13 @@
         }
 
         checkSession();
-        
-        // Login form
+
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const password = document.getElementById('passwordInput').value;
             document.getElementById('loginError').classList.add('hidden');
             const loginVersion = ++authStateVersion;
-            
+
             try {
                 const response = await fetch('/api/admin/login', {
                     method: 'POST',
@@ -430,25 +806,25 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password })
                 });
-                
-                const data = await response.json();
-                
+
+                const data = await readJson(response);
+
                 if (loginVersion !== authStateVersion) {
                     return;
                 }
 
-                if (data.success) {
+                if (response.ok && data?.success) {
                     isAuthenticated = true;
                     document.getElementById('passwordInput').value = '';
                     showDashboard();
                 } else {
-                    showLoginError(data.error || 'Falsches Passwort');
+                    showLoginError(data?.error || 'Falsches Passwort');
                 }
             } catch (error) {
                 showLoginError('Fehler beim Login');
             }
         });
-        
+
         async function checkSession() {
             const requestVersion = authStateVersion;
 
@@ -460,7 +836,7 @@
                 if (requestVersion !== authStateVersion) {
                     return;
                 }
-                
+
                 if (response.ok) {
                     isAuthenticated = true;
                     showDashboard();
@@ -471,23 +847,21 @@
                 showLoggedOutState();
             }
         }
-        
+
         function showDashboard() {
             isAuthenticated = true;
+            clearAdminFeedback();
+            document.getElementById('loginError').classList.add('hidden');
             document.getElementById('loginScreen').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
-            
-            // Restore period selection
+
             restorePeriodSelection();
             loadStatistics(currentPeriod);
             loadBookings();
-            
-            // Start polling for new bookings
             startPolling();
         }
-        
+
         function restorePeriodSelection() {
-            // Set active button based on saved period
             document.querySelectorAll('.period-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.textContent.trim() === getPeriodButtonText(currentPeriod)) {
@@ -495,21 +869,23 @@
                 }
             });
         }
-        
+
         function getPeriodButtonText(period) {
             const map = { week: 'Woche', month: 'Monat', year: 'Jahr' };
             return map[period] || 'Monat';
         }
-        
+
         function showLoggedOutState() {
             authStateVersion += 1;
             isAuthenticated = false;
             lastBookingCount = 0;
             lastBookingId = null;
             hasLoadedOnce = false;
+            clearAdminFeedback();
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('adminDashboard').classList.add('hidden');
             document.getElementById('passwordInput').value = '';
+            document.getElementById('loginError').classList.add('hidden');
             document.getElementById('bookingsList').innerHTML = '';
 
             const notification = document.getElementById('newBookingNotification');
@@ -530,19 +906,18 @@
                 showLoggedOutState();
             }
         }
-        
+
         function showLoginError(message) {
             const errorDiv = document.getElementById('loginError');
             errorDiv.textContent = message;
             errorDiv.classList.remove('hidden');
         }
-        
+
         async function loadStatistics(period, updateUI = true) {
             currentPeriod = period;
             localStorage.setItem('adminPeriod', period);
-            
+
             if (updateUI) {
-                // Update active button
                 document.querySelectorAll('.period-btn').forEach(btn => {
                     btn.classList.remove('active');
                     if (btn.textContent.trim() === getPeriodButtonText(period)) {
@@ -550,30 +925,30 @@
                     }
                 });
             }
-            
+
             try {
                 const response = await adminFetch(`/api/admin/statistics?period=${period}`);
-                
-                if (!response.ok) throw new Error();
-                
-                const data = await response.json();
-                const totalRevenue = parseFloat(data.totalRevenue || 0);
-                const unconfirmedRevenue = parseFloat(data.unconfirmedRevenue || 0);
-                
-                document.getElementById('totalRevenue').textContent = totalRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-                
-                // Show unconfirmed revenue if there is any
+                if (!response.ok) {
+                    throw new Error();
+                }
+
+                const data = await readJson(response);
+                const totalRevenue = parseFloat(data?.totalRevenue || 0);
+                const unconfirmedRevenue = parseFloat(data?.unconfirmedRevenue || 0);
+
+                document.getElementById('totalRevenue').textContent = formatCurrency(totalRevenue);
+
                 const unconfirmedElement = document.getElementById('unconfirmedRevenue');
                 if (unconfirmedRevenue > 0) {
-                    unconfirmedElement.textContent = `davon unbestätigt: ${unconfirmedRevenue.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+                    unconfirmedElement.textContent = `davon unbestätigt: ${formatCurrency(unconfirmedRevenue)}`;
                     unconfirmedElement.style.display = 'block';
                 } else {
                     unconfirmedElement.textContent = '';
                     unconfirmedElement.style.display = 'none';
                 }
-                
-                document.getElementById('totalBookings').textContent = data.totalBookings;
-                
+
+                document.getElementById('totalBookings').textContent = data?.totalBookings ?? 0;
+
                 const periodLabels = {
                     week: 'Diese Woche',
                     month: 'Dieser Monat',
@@ -584,135 +959,142 @@
                 console.error('Error loading statistics:', error);
             }
         }
-        
+
         async function loadBookings(forceUpdate = false) {
             try {
                 const response = await adminFetch('/api/admin/bookings');
-                
                 if (!response.ok) {
                     throw new Error();
                 }
-                
-                const bookings = await response.json();
-                
-                // Check if there are new bookings (only if we had a previous state)
+
+                const bookings = await readJson(response) || [];
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
                 const hadPreviousState = lastBookingId !== null;
-                const hasNewBookings = hadPreviousState && (
-                    currentBookingCount !== lastBookingCount || 
+                const hasBookingChanges = hadPreviousState && (
+                    currentBookingCount !== lastBookingCount ||
                     (newestBookingId && newestBookingId !== lastBookingId)
                 );
-                
+                const hasLikelyNewBooking = hadPreviousState &&
+                    currentBookingCount >= lastBookingCount &&
+                    newestBookingId &&
+                    newestBookingId !== lastBookingId;
+
                 if (bookings.length === 0) {
-                    document.getElementById('bookingsList').innerHTML = '<p>Keine Buchungen vorhanden.</p>';
-                    // Update tracking even if no bookings
+                    document.getElementById('bookingsList').innerHTML = `
+                        <div class="empty-state">
+                            <strong>Keine Buchungen vorhanden.</strong>
+                            Neue Reservierungen erscheinen hier automatisch.
+                        </div>
+                    `;
                     lastBookingCount = 0;
                     lastBookingId = null;
                     hasLoadedOnce = true;
                     return;
                 }
-                
-                // Group bookings by date
+
                 const bookingsByDate = {};
-                const dateMap = {}; // Map formatted date string to actual date for sorting
-                
+                const dateMap = {};
+
                 bookings.forEach(booking => {
                     const date = new Date(booking.startTime);
-                    // Get date at midnight for consistent grouping
                     const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                    const dateKey = date.toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' });
-                    
+                    const dateKey = date.toLocaleDateString('de-DE', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+
                     if (!bookingsByDate[dateKey]) {
                         bookingsByDate[dateKey] = [];
-                        dateMap[dateKey] = dateOnly; // Store actual date for sorting
+                        dateMap[dateKey] = dateOnly;
                     }
                     bookingsByDate[dateKey].push(booking);
                 });
-                
-                // Sort dates by actual date (newest first)
-                const sortedDates = Object.keys(bookingsByDate).sort((a, b) => {
-                    return dateMap[b] - dateMap[a]; // Descending order (newest first)
-                });
-                
-                // Only skip rendering during polling if nothing changed (but always render on first load or force update)
-                const shouldSkipRender = !forceUpdate && hasLoadedOnce && !hasNewBookings;
+
+                const sortedDates = Object.keys(bookingsByDate).sort((a, b) => dateMap[b] - dateMap[a]);
+                const shouldSkipRender = !forceUpdate && hasLoadedOnce && !hasBookingChanges;
                 if (shouldSkipRender) {
-                    // Don't update UI if nothing changed during polling
                     return;
                 }
-                
-                // Update tracking after we've decided to render
+
                 lastBookingCount = currentBookingCount;
                 lastBookingId = newestBookingId;
                 hasLoadedOnce = true;
-                
-                // Get today's date for comparison
+
                 const today = new Date();
-                const todayKey = today.toLocaleDateString('de-DE', { year: 'numeric', month: 'long', day: 'numeric' });
-                
-                // Render bookings grouped by date
+                const todayKey = today.toLocaleDateString('de-DE', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
                 let html = '';
                 sortedDates.forEach(dateKey => {
                     const dayBookings = bookingsByDate[dateKey];
-                    // Sort bookings within the day by start time (earliest first)
                     dayBookings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
                     const isExpanded = expandedDays.includes(dateKey);
                     const isToday = dateKey === todayKey;
-                    
-                    // Count pending payment confirmations
-                    const pendingCount = dayBookings.filter(b => 
+                    const dateKeyJs = toJsString(dateKey);
+                    const toggleAction = escapeHtml(`toggleDay(this, ${dateKeyJs})`);
+                    const dayId = getDayElementId(dateKey);
+                    const pendingCount = dayBookings.filter(b =>
                         b.status === 'pending' || b.status === 'payment_pending'
                     ).length;
-                    
                     const countText = `${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}`;
-                    const pendingBadge = pendingCount > 0 
-                        ? `<span class="pending-badge">${pendingCount}x Zahlungsbestätigung ausstehend</span>`
+                    const pendingBadge = pendingCount > 0
+                        ? `<span class="pending-badge">${pendingCount} offen</span>`
                         : '';
-                    
+                    const toggleText = isExpanded ? 'Weniger' : 'Öffnen';
+
                     html += `
-                        <div class="day-group">
-                            <div class="day-header ${isToday ? 'today' : ''}" onclick="toggleDay('${dateKey}')">
-                                <h3>${dateKey}</h3>
-                                <div class="count-container">
+                        <section class="day-group">
+                            <button type="button" class="day-header ${isToday ? 'today' : ''}" onclick="${toggleAction}">
+                                <div>
+                                    <h3>${dateKey}</h3>
+                                </div>
+                                <div class="day-meta">
                                     <span class="count">${countText}</span>
                                     ${pendingBadge}
+                                    <span class="day-toggle">${toggleText}</span>
                                 </div>
-                            </div>
-                            <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="day-${dateKey}">
+                            </button>
+                            <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="${dayId}">
                                 ${dayBookings.map(booking => renderBooking(booking)).join('')}
                             </div>
-                        </div>
+                        </section>
                     `;
                 });
-                
+
                 document.getElementById('bookingsList').innerHTML = html;
-                
-                // Show notification if new bookings detected (only during polling, not on manual refresh)
-                if (hasNewBookings && !forceUpdate) {
+
+                if (hasLikelyNewBooking && !forceUpdate) {
                     showNewBookingNotification();
                 }
             } catch (error) {
                 console.error('Error loading bookings:', error);
-                document.getElementById('bookingsList').innerHTML = '<div class="error-message">Fehler beim Laden der Buchungen.</div>';
+                document.getElementById('bookingsList').innerHTML = `
+                    <div class="empty-state">
+                        <strong>Fehler beim Laden der Buchungen.</strong>
+                        Bitte Seite neu laden oder später erneut versuchen.
+                    </div>
+                `;
             }
         }
-        
+
         function showNewBookingNotification() {
-            // Create or update notification
             let notification = document.getElementById('newBookingNotification');
             if (!notification) {
                 notification = document.createElement('div');
                 notification.id = 'newBookingNotification';
-                notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #28a745; color: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000; cursor: pointer;';
-                notification.innerHTML = '🆕 Neue Buchung verfügbar! Klicken zum Aktualisieren.';
+                notification.className = 'new-booking-notification';
+                notification.textContent = 'Neue Buchung verfügbar. Zum Aktualisieren klicken.';
                 notification.onclick = () => {
                     loadBookings(true);
                     notification.remove();
                 };
                 document.body.appendChild(notification);
-                
-                // Auto-remove after 5 seconds
+
                 setTimeout(() => {
                     if (notification.parentNode) {
                         notification.remove();
@@ -720,11 +1102,11 @@
                 }, 5000);
             }
         }
-        
-        function toggleDay(dateKey) {
-            const dayBookings = document.getElementById(`day-${dateKey}`);
+
+        function toggleDay(button, dateKey) {
+            const dayBookings = document.getElementById(getDayElementId(dateKey));
             const isExpanded = dayBookings.classList.contains('expanded');
-            
+
             if (isExpanded) {
                 dayBookings.classList.remove('expanded');
                 expandedDays = expandedDays.filter(d => d !== dateKey);
@@ -734,119 +1116,150 @@
                     expandedDays.push(dateKey);
                 }
             }
-            
-            // Save to localStorage
+
+            const toggleLabel = button?.querySelector('.day-toggle');
+            if (toggleLabel) {
+                toggleLabel.textContent = isExpanded ? 'Öffnen' : 'Weniger';
+            }
+
             localStorage.setItem('adminExpandedDays', JSON.stringify(expandedDays));
         }
-        
+
         function startPolling() {
             if (isPolling) return;
             isPolling = true;
-            
-            // Poll every 10 seconds for new bookings
+
             setInterval(async () => {
                 if (!isAuthenticated) return;
-                
+
                 try {
                     const response = await adminFetch('/api/admin/bookings');
-                    
                     if (!response.ok) {
                         return;
                     }
-                    
-                    const bookings = await response.json();
+
+                    const bookings = await readJson(response) || [];
                     const currentCount = bookings.length;
                     const newestId = bookings.length > 0 ? bookings[0].id : null;
-                    
-                    // Only update if there are actual changes
+
                     if (currentCount !== lastBookingCount || (newestId && newestId !== lastBookingId)) {
-                        await loadBookings(false); // Don't force update, just check for changes
-                        await loadStatistics(currentPeriod, false); // Update stats silently
+                        await loadBookings(false);
+                        await loadStatistics(currentPeriod, false);
                     }
                 } catch (error) {
                     console.error('Polling error:', error);
                 }
-            }, 10000); // Check every 10 seconds
+            }, 10000);
         }
-        
+
         function renderBooking(booking) {
             const startDate = new Date(booking.startTime);
-            const startTime = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             const endDate = new Date(booking.endTime);
+            const startTime = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             const endTime = endDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
             const bookingId = String(booking.id ?? '');
             const bookingIdJs = toJsString(bookingId);
+            const bookingName = String(booking.name || 'Ohne Namen');
+            const bookingNameJs = toJsString(bookingName);
             const notesElementId = `notes-${bookingId}`;
-            const verifyAction = escapeHtml(`verifyPayment(${bookingIdJs})`);
+            const verifyAction = escapeHtml(`verifyPayment(${bookingIdJs}, this)`);
             const saveNotesAction = escapeHtml(`saveNotes(${bookingIdJs}, this)`);
+            const deleteAction = escapeHtml(`deleteBooking(${bookingIdJs}, ${bookingNameJs}, this)`);
             const boardCount = Number.parseInt(booking.numberOfBoards, 10) || 0;
-            const price = Number.parseFloat(booking.price || 0).toFixed(2);
+            const price = formatCurrency(booking.price || 0);
             const notes = booking.notes || '';
-            
-            let statusBadge = '';
+            const paymentLabel = booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+
+            let statusBadge = '<span class="status-badge status-confirmed">Bestätigt</span>';
             let verifyButton = '';
-            
+
             if (booking.status === 'payment_pending' || booking.status === 'pending') {
-                if (booking.paymentMethod === 'paypal') {
-                    statusBadge = '<span class="status-badge status-payment_pending">PayPal: Zahlung ausstehend</span>';
-                } else {
-                    statusBadge = '<span class="status-badge status-pending">Barzahlung ausstehend</span>';
-                }
+                statusBadge = booking.paymentMethod === 'paypal'
+                    ? '<span class="status-badge status-payment_pending">PayPal offen</span>'
+                    : '<span class="status-badge status-pending">Barzahlung offen</span>';
                 verifyButton = `<button class="btn btn-verify" onclick="${verifyAction}">Zahlung bestätigen</button>`;
-            } else if (booking.status === 'confirmed') {
-                statusBadge = '<span class="status-badge status-confirmed">Bestätigt</span>';
             }
-            
+
+            const verifiedPill = booking.paymentVerified && booking.verifiedAt
+                ? `<span class="meta-pill meta-pill-verified">Verifiziert ${escapeHtml(new Date(booking.verifiedAt).toLocaleString('de-DE'))}</span>`
+                : '';
+
             return `
-                <div class="booking-card">
-	                    <div class="booking-header">
-	                        <div class="booking-info">
-	                            <h3>${escapeHtml(booking.name || 'Ohne Namen')}</h3>
-	                            <p>📞 ${escapeHtml(booking.phone || '')}</p>
-	                            <p class="time-line">🕐 <span class="time-range">${escapeHtml(startTime)} - ${escapeHtml(endTime)}</span></p>
-	                            <p>🏄 ${boardCount} Board${boardCount !== 1 ? 's' : ''}</p>
-	                            <p>💰 ${price}€</p>
-	                            <p>💳 ${booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung'}</p>
-	                            ${booking.paymentVerified && booking.verifiedAt ? `<p>✅ Verifiziert: ${escapeHtml(new Date(booking.verifiedAt).toLocaleString('de-DE'))}</p>` : ''}
-	                        </div>
-	                        <div class="booking-actions">
-	                            ${statusBadge}
-                            ${verifyButton}
+                <article class="booking-card">
+                    <div class="booking-header">
+                        <div class="booking-main">
+                            <div class="booking-topline">
+                                <h3>${escapeHtml(bookingName)}</h3>
+                                ${statusBadge}
+                            </div>
+                            <p class="booking-schedule">${escapeHtml(startTime)} - ${escapeHtml(endTime)}</p>
+                            <div class="booking-meta">
+                                <span class="meta-pill">${boardCount} Board${boardCount !== 1 ? 's' : ''}</span>
+                                <span class="meta-pill">${price}</span>
+                                <span class="meta-pill">${paymentLabel}</span>
+                                ${verifiedPill}
+                            </div>
+                            <p class="booking-phone">Telefon ${escapeHtml(booking.phone || '')}</p>
                         </div>
-	                    </div>
-	                    <div class="notes-section">
-	                        <textarea id="${escapeHtml(notesElementId)}" placeholder="Notizen hinzufügen...">${escapeHtml(notes)}</textarea>
-	                        <button class="btn" onclick="${saveNotesAction}">Notizen speichern</button>
-	                        ${notes ? `<div class="notes-display"><strong>Notizen:</strong> ${escapeHtml(notes)}</div>` : ''}
-	                    </div>
-	                </div>
-	            `;
+                        <div class="booking-actions">
+                            ${verifyButton}
+                            <button class="btn btn-delete" onclick="${deleteAction}">Eintrag löschen</button>
+                        </div>
+                    </div>
+                    <div class="notes-section">
+                        <label class="notes-label" for="${escapeHtml(notesElementId)}">Notizen</label>
+                        <textarea id="${escapeHtml(notesElementId)}" placeholder="Interne Notiz hinzufügen...">${escapeHtml(notes)}</textarea>
+                        <div class="notes-actions">
+                            <button class="btn btn-secondary" onclick="${saveNotesAction}">Notizen speichern</button>
+                        </div>
+                        ${notes ? `<div class="notes-display"><strong>Aktuelle Notiz:</strong> ${escapeHtml(notes)}</div>` : ''}
+                    </div>
+                </article>
+            `;
         }
-        
-        async function verifyPayment(bookingId) {
+
+        async function verifyPayment(bookingId, button) {
+            const originalText = button?.textContent;
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Bestätigt...';
+            }
+
             try {
                 const response = await adminFetch(`/api/bookings/${encodeURIComponent(bookingId)}/verify`, {
                     method: 'POST'
                 });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Force update to immediately reflect changes
-                    lastBookingId = null; // Reset to force update
-                    await loadBookings(true); // Force update
-                    await loadStatistics(currentPeriod, false); // Update stats silently
+                const data = await readJson(response);
+
+                if (response.ok && data?.success) {
+                    lastBookingId = null;
+                    await loadBookings(true);
+                    await loadStatistics(currentPeriod, false);
+                    showAdminFeedback('Zahlung wurde bestätigt.', 'success');
                 } else {
-                    console.error('Fehler bei der Bestätigung:', data.error || 'Unbekannter Fehler');
+                    showAdminFeedback(data?.error || 'Fehler bei der Bestätigung.', 'error');
                 }
             } catch (error) {
                 console.error('Error verifying payment:', error);
+                showAdminFeedback('Fehler bei der Bestätigung.', 'error');
+            } finally {
+                if (button && button.isConnected) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
             }
         }
-        
+
         async function saveNotes(bookingId, button) {
             const notes = document.getElementById(`notes-${bookingId}`).value;
-            
+            const originalText = button?.textContent;
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Speichert...';
+            }
+
             try {
                 const response = await adminFetch(`/api/bookings/${encodeURIComponent(bookingId)}/notes`, {
                     method: 'POST',
@@ -855,32 +1268,61 @@
                     },
                     body: JSON.stringify({ notes })
                 });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    // Force update to immediately reflect changes
-                    await loadBookings(true); // Force update
-                    
-                    // Show success feedback (ohne Popup)
-                    if (button) {
-                        const originalText = button.textContent;
-                        button.textContent = '✓ Gespeichert!';
-                        button.style.background = '#28a745';
-                        setTimeout(() => {
-                            button.textContent = originalText;
-                            button.style.background = '#007bff';
-                        }, 2000);
-                    }
+                const data = await readJson(response);
+
+                if (response.ok && data?.success) {
+                    await loadBookings(true);
+                    showAdminFeedback('Notizen wurden gespeichert.', 'success');
                 } else {
-                    console.error('Fehler beim Speichern der Notizen:', data.error || 'Unbekannter Fehler');
+                    showAdminFeedback(data?.error || 'Fehler beim Speichern der Notizen.', 'error');
                 }
             } catch (error) {
                 console.error('Error saving notes:', error);
+                showAdminFeedback('Fehler beim Speichern der Notizen.', 'error');
+            } finally {
+                if (button && button.isConnected) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
             }
         }
-        
-        // Polling is now handled by startPolling() function
+
+        async function deleteBooking(bookingId, bookingName, button) {
+            const shouldDelete = window.confirm(`Eintrag von ${bookingName} wirklich dauerhaft löschen?`);
+            if (!shouldDelete) {
+                return;
+            }
+
+            const originalText = button?.textContent;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Löscht...';
+            }
+
+            try {
+                const response = await adminFetch(`/api/bookings/${encodeURIComponent(bookingId)}`, {
+                    method: 'DELETE'
+                });
+                const data = await readJson(response);
+
+                if (response.ok && data?.success) {
+                    lastBookingId = null;
+                    await loadBookings(true);
+                    await loadStatistics(currentPeriod, false);
+                    showAdminFeedback(`Eintrag von ${bookingName} wurde gelöscht.`, 'success');
+                } else {
+                    showAdminFeedback(data?.error || 'Fehler beim Löschen der Buchung.', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting booking:', error);
+                showAdminFeedback('Fehler beim Löschen der Buchung.', 'error');
+            } finally {
+                if (button && button.isConnected) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            }
+        }
     </script>
 </body>
 </html>

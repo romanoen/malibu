@@ -337,7 +337,7 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false, p
     const paypalButton = document.getElementById('paypalLinkButton');
 
     if (paymentMethod === 'cash') {
-        details = `Deine Buchung wurde erstellt. Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen beschrifteten Umschlag.`;
+        details = `Deine Buchung wurde erstellt. Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen beschrifteten Umschlag und wirf ihn in den passenden, beschrifteten Briefkasten.`;
         paypalButton.style.display = 'none';
         paypalButton.classList.add('hidden');
     } else if (paymentMethod === 'paypal') {

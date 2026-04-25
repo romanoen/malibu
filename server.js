@@ -319,6 +319,27 @@ app.post('/api/bookings/:id/notes', checkAdminSession, async (req, res) => {
   }
 });
 
+app.delete('/api/bookings/:id', checkAdminSession, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const booking = await db.findBookingById(id);
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    const deleted = await db.deleteBooking(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    res.json({ success: true, deletedId: id });
+  } catch (error) {
+    console.error('Error deleting booking:', error);
+    res.status(500).json({ error: 'Fehler beim Löschen der Buchung' });
+  }
+});
+
 app.post('/api/calculate-price', (req, res) => {
   try {
     const validation = validateBookingTimeSelection(req.body);
