@@ -241,7 +241,7 @@ select {
 
 .duration-options {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
     gap: 8px;
 }
 
@@ -275,7 +275,27 @@ select {
     gap: 9px;
 }
 
+.board-type-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+}
+
 .payment-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 50px;
+    padding: 12px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: #fbfdfe;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.board-type-option {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -295,13 +315,30 @@ select {
     color: var(--water-dark);
 }
 
+.board-type-option:has(input:checked) {
+    border-color: var(--water);
+    background: #e8f7f8;
+    color: var(--water-dark);
+}
+
 .payment-option input[type="radio"] {
     width: 18px;
     height: 18px;
     accent-color: var(--water);
 }
 
+.board-type-option input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--water);
+}
+
 .payment-option span {
+    font-size: 0.98rem;
+    font-weight: 800;
+}
+
+.board-type-option span {
     font-size: 0.98rem;
     font-weight: 800;
 }

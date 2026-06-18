@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
+    board_type TEXT NOT NULL DEFAULT 'single',
     number_of_boards INTEGER NOT NULL,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
@@ -26,4 +27,3 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_start_time ON bookings(start_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
-

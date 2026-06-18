@@ -70,6 +70,7 @@ app.post('/api/bookings', async (req, res) => {
     const {
       name,
       phone,
+      boardType,
       numberOfBoards,
       startTime,
       endTime,
@@ -77,13 +78,14 @@ app.post('/api/bookings', async (req, res) => {
       duration
     } = validation.booking;
 
-    const priceResult = calculatePrice(duration, numberOfBoards);
+    const priceResult = calculatePrice(duration, numberOfBoards, boardType);
     const price = priceResult.price;
     
     const booking = {
       id: crypto.randomUUID(),
       name,
       phone,
+      boardType,
       numberOfBoards,
       startTime,
       endTime,
@@ -117,6 +119,7 @@ app.post('/api/bookings', async (req, res) => {
       booking: {
         id: booking.id,
         name: booking.name,
+        boardType: booking.boardType,
         price: booking.price,
         paymentMethod: booking.paymentMethod,
         status: booking.status,
@@ -353,13 +356,15 @@ app.post('/api/calculate-price', (req, res) => {
 
     const priceResult = calculatePrice(
       validation.booking.duration,
-      validation.booking.numberOfBoards
+      validation.booking.numberOfBoards,
+      validation.booking.boardType
     );
     
     res.json({ 
       price: priceResult.price,
       isDayRate: priceResult.isDayRate,
-      pricePerBoard: priceResult.pricePerBoard
+      pricePerBoard: priceResult.pricePerBoard,
+      boardType: priceResult.boardType
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to calculate price' });

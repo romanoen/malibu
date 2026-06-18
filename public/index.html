@@ -30,15 +30,29 @@
 
                         <div class="form-group">
                             <label for="phone">Telefon</label>
-                            <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="0152 12345678" required>
+                            <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" placeholder="0152 22 65 8679" required>
                         </div>
                     </div>
                 </section>
 
                 <section class="form-section">
                     <h2>Ausleihe</h2>
+                    <div class="form-group compact-group">
+                        <span class="field-label">Board-Typ</span>
+                        <div class="board-type-options" aria-label="Board-Typ">
+                            <label class="board-type-option">
+                                <input type="radio" name="boardType" value="single" checked required>
+                                <span>Singleboard</span>
+                            </label>
+                            <label class="board-type-option">
+                                <input type="radio" name="boardType" value="partner" required>
+                                <span>Partnerboard</span>
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="form-group">
-                        <label for="numberOfBoards">SUP-Boards</label>
+                        <label for="numberOfBoards">Anzahl Boards</label>
                         <div class="board-stepper">
                             <button type="button" class="stepper-btn" data-board-step="-1" aria-label="Ein Board weniger">−</button>
                             <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" inputmode="numeric" required>
@@ -66,6 +80,7 @@
                             <button type="button" class="duration-btn" data-duration-minutes="90">90 min</button>
                             <button type="button" class="duration-btn" data-duration-minutes="120">2 h</button>
                             <button type="button" class="duration-btn" data-duration-minutes="180">3 h</button>
+                            <button type="button" class="duration-btn" data-duration-minutes="240">4 h</button>
                             <button type="button" class="duration-btn" data-duration-custom="true">Andere</button>
                         </div>
                     </div>
@@ -105,6 +120,10 @@
                             <input type="checkbox" id="safetyCheck" name="safetyCheck" required>
                             <span><a href="/leitfaden.html" target="_blank" class="link-checkbox">Leitfaden</a> gelesen</span>
                         </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="liabilityCheck" name="liabilityCheck" required>
+                            <span>Ich habe den <a href="/leitfaden.html" target="_blank" class="link-checkbox">Haftungsausschluss</a> zur Kenntnis genommen und bin einverstanden.</span>
+                        </label>
                     </div>
                 </section>
 
@@ -120,7 +139,7 @@
             </form>
 
             <div id="dayRateMessage" class="info-message hidden">
-                <h2>Tagesmiete aktiviert</h2>
+                <h2>Hinweis</h2>
                 <p id="dayRateDetails"></p>
             </div>
 
@@ -142,16 +161,22 @@
             <details class="pricing-info">
                 <summary>Preise & Kontakt</summary>
                 <ul>
+                    <li><strong>Singleboards</strong></li>
                     <li>SUP Board 90 min.: 15,00€</li>
                     <li>SUP Board 2h: 20,00€</li>
-                    <li>SUP Board bis 3h: 30,00€</li>
-                    <li>SUP Board 1 Tag: 50,00€</li>
-                    <li><strong>Kleingruppen-Special:</strong> 4er Pack Boards 90': 50,00€</li>
+                    <li>SUP Board 3h: 25,00€</li>
+                    <li>SUP Board 4h: 35,00€</li>
+                    <li><strong>Partnerboards</strong></li>
+                    <li>Partnerboard 90 min.: 25,00€</li>
+                    <li>Partnerboard 2h: 35,00€</li>
+                    <li>Partnerboard 3h: 40,00€</li>
+                    <li>Partnerboard 4h: 50,00€</li>
                 </ul>
-                <p class="included-note">(inkl. Paddel, Seesack)</p>
+                <p class="included-note">(inkl. Paddel, Sicherheitsleine und Seesack)</p>
+                <p class="included-note">Ganztageskarten, 10er Karten und Weekend-Karten stellen wir nur persönlich aus.</p>
                 <p class="contact-note">
                     Für spezielle Gruppenrabatte, Firmenevents oder ähnliches:<br>
-                    Telefon: <a href="tel:+491788748517">0178 8748 517</a><br>
+                    Telefon: <a href="tel:+4915222658679">0152 22 65 8679</a><br>
                     E-Mail: <a href="mailto:malibusupverleih@aol.com">malibusupverleih@aol.com</a><br>
                     Bitte keine Buchungsanfragen per E-Mail.
                 </p>

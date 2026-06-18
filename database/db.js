@@ -34,6 +34,7 @@ async function initDatabase() {
       
       // Ensure notes column exists (run after table creation)
       await ensureNotesColumn();
+      await ensureBoardTypeColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -92,6 +93,17 @@ async function ensureNotesColumn() {
   }
 }
 
+async function ensureBoardTypeColumn() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS board_type TEXT NOT NULL DEFAULT 'single'");
+    console.log('✅ Board type column verified');
+  } catch (error) {
+    console.error('⚠️  Could not add board_type column:', error.message);
+  }
+}
+
 // Read bookings (works with both PostgreSQL and JSON)
 async function readBookings() {
   if (usePostgreSQL) {
@@ -100,6 +112,7 @@ async function readBookings() {
         id,
         name,
         phone,
+        board_type as "boardType",
         number_of_boards as "numberOfBoards",
         start_time as "startTime",
         end_time as "endTime",
@@ -148,15 +161,16 @@ async function saveBooking(booking) {
   if (usePostgreSQL) {
     await pool.query(`
       INSERT INTO bookings (
-        id, name, phone, number_of_boards, start_time, end_time,
+        id, name, phone, board_type, number_of_boards, start_time, end_time,
         duration_hours, duration_minutes, price, price_per_board,
         is_day_rate, payment_method, status, paypal_link, paypal_amount,
         payment_verified, verified_at, notes, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     `, [
       booking.id,
       booking.name,
       booking.phone,
+      booking.boardType || 'single',
       booking.numberOfBoards,
       booking.startTime,
       booking.endTime,
@@ -261,6 +275,7 @@ async function findBookingById(bookingId) {
         id,
         name,
         phone,
+        board_type as "boardType",
         number_of_boards as "numberOfBoards",
         start_time as "startTime",
         end_time as "endTime",

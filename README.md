@@ -14,11 +14,16 @@ Mobile-first booking portal for SUP rentals with PayPal and cash payment workflo
 
 ## Prices
 
-- SUP board 90 min.: 15,00 EUR
-- SUP board 2h: 20,00 EUR
-- SUP board up to 3h: 30,00 EUR
-- SUP board 1 day: 50,00 EUR
-- Kleingruppen-Special: 4 boards for 90 min.: 50,00 EUR
+- Singleboard 90 min.: 15,00 EUR
+- Singleboard 2h: 20,00 EUR
+- Singleboard 3h: 25,00 EUR
+- Singleboard 4h: 35,00 EUR
+- Partnerboard 90 min.: 25,00 EUR
+- Partnerboard 2h: 35,00 EUR
+- Partnerboard 3h: 40,00 EUR
+- Partnerboard 4h: 50,00 EUR
+
+Ganztageskarten, 10er Karten und Weekend-Karten werden nur persönlich ausgestellt und sind nicht online buchbar.
 
 ## Setup
 

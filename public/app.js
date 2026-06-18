@@ -15,10 +15,12 @@ const customTimeField = document.getElementById('customTimeField');
 const boardStepButtons = document.querySelectorAll('[data-board-step]');
 const paymentNote = document.getElementById('paymentNote');
 const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
+const boardTypeInputs = document.querySelectorAll('input[name="boardType"]');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
 const BOOKING_INTERVAL_MINUTES = 15;
+const MAX_ONLINE_DURATION_MINUTES = 4 * 60;
 let selectedFixedDurationMinutes = null;
 
 function timeToMinutes(timeString) {
@@ -35,6 +37,10 @@ function minutesToTime(totalMinutes) {
 function getBoardCount() {
     const numberOfBoards = parseInt(numberOfBoardsInput.value, 10);
     return Number.isInteger(numberOfBoards) && numberOfBoards >= 1 ? numberOfBoards : null;
+}
+
+function getBoardType() {
+    return document.querySelector('input[name="boardType"]:checked')?.value || 'single';
 }
 
 function generateTimeOptions({ includeClosingTime = false } = {}) {
@@ -58,7 +64,12 @@ function buildEndTimeOptions(startTime) {
     const startTotalMinutes = timeToMinutes(startTime);
     let endOptions = '<option value="">Bitte wählen</option>';
 
-    for (let totalMinutes = BOOKING_START_HOUR * 60; totalMinutes <= BOOKING_END_HOUR * 60; totalMinutes += BOOKING_INTERVAL_MINUTES) {
+    const latestEndMinute = Math.min(
+        BOOKING_END_HOUR * 60,
+        startTotalMinutes + MAX_ONLINE_DURATION_MINUTES
+    );
+
+    for (let totalMinutes = BOOKING_START_HOUR * 60; totalMinutes <= latestEndMinute; totalMinutes += BOOKING_INTERVAL_MINUTES) {
         if (totalMinutes > startTotalMinutes) {
             const timeString = minutesToTime(totalMinutes);
             endOptions += `<option value="${timeString}">${timeString} Uhr</option>`;
@@ -79,12 +90,14 @@ function updateDurationButtons() {
     fixedDurationButtons.forEach(button => {
         const duration = parseInt(button.dataset.durationMinutes, 10);
         const wouldEndAfterClosing = startMinutes !== null && startMinutes + duration > BOOKING_END_HOUR * 60;
+        const wouldExceedOnlineLimit = duration > MAX_ONLINE_DURATION_MINUTES;
 
-        button.disabled = wouldEndAfterClosing;
+        button.disabled = wouldEndAfterClosing || wouldExceedOnlineLimit;
         button.classList.toggle(
             'active',
             !isCustomOpen &&
                 !wouldEndAfterClosing &&
+                !wouldExceedOnlineLimit &&
                 (selectedFixedDurationMinutes === duration || selectedDuration === duration)
         );
     });
@@ -180,6 +193,10 @@ endTimeSelect.addEventListener('change', () => {
     input.addEventListener('input', calculatePrice);
 });
 
+boardTypeInputs.forEach(input => {
+    input.addEventListener('change', calculatePrice);
+});
+
 fixedDurationButtons.forEach(button => {
     button.addEventListener('click', () => {
         setEndTimeForDuration(parseInt(button.dataset.durationMinutes, 10));
@@ -209,6 +226,7 @@ async function calculatePrice() {
     const startTime = startTimeSelect.value;
     const endTime = endTimeSelect.value;
     const numberOfBoards = getBoardCount();
+    const boardType = getBoardType();
 
     if (!bookingDate || !startTime || !endTime || numberOfBoards === null) {
         totalPriceDisplay.textContent = '0,00 €';
@@ -229,22 +247,22 @@ async function calculatePrice() {
             body: JSON.stringify({
                 startTime: startDateTime,
                 endTime: endDateTime,
-                numberOfBoards
+                numberOfBoards,
+                boardType
             })
         });
 
         const data = await response.json();
+        if (!response.ok) {
+            totalPriceDisplay.textContent = '0,00 €';
+            dayRateMessage.classList.add('hidden');
+            return;
+        }
+
         if (data.price !== undefined) {
             totalPriceDisplay.textContent = `${data.price.toFixed(2)} €`;
             updateDurationButtons();
-
-            if (data.isDayRate) {
-                const dayRateDetails = document.getElementById('dayRateDetails');
-                dayRateDetails.textContent = 'Tagesmiete (24h) wurde aktiviert.';
-                dayRateMessage.classList.remove('hidden');
-            } else {
-                dayRateMessage.classList.add('hidden');
-            }
+            dayRateMessage.classList.add('hidden');
         }
     } catch (error) {
         console.error('Error calculating price:', error);
@@ -258,9 +276,10 @@ form.addEventListener('submit', async (e) => {
     const paymentMethod = formData.get('paymentMethod');
     const privacyCheck = document.getElementById('privacyCheck').checked;
     const safetyCheck = document.getElementById('safetyCheck').checked;
+    const liabilityCheck = document.getElementById('liabilityCheck').checked;
 
-    if (!privacyCheck || !safetyCheck) {
-        showErrorMessage('Bitte akzeptiere Datenschutz und Leitfaden.');
+    if (!privacyCheck || !safetyCheck || !liabilityCheck) {
+        showErrorMessage('Bitte akzeptiere Datenschutz, Leitfaden und Haftungsausschluss.');
         return;
     }
 
@@ -284,6 +303,7 @@ form.addEventListener('submit', async (e) => {
         const bookingData = {
             name: formData.get('name'),
             phone: formData.get('phone'),
+            boardType: formData.get('boardType'),
             numberOfBoards: parseInt(formData.get('numberOfBoards'), 10),
             startTime: `${bookingDate}T${startTime}:00`,
             endTime: `${bookingDate}T${endTime}:00`,

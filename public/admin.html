@@ -1166,6 +1166,8 @@
             const saveNotesAction = escapeHtml(`saveNotes(${bookingIdJs}, this)`);
             const deleteAction = escapeHtml(`deleteBooking(${bookingIdJs}, ${bookingNameJs}, this)`);
             const boardCount = Number.parseInt(booking.numberOfBoards, 10) || 0;
+            const boardType = booking.boardType === 'partner' ? 'Partnerboard' : 'Singleboard';
+            const boardLabel = `${boardCount} ${boardType}${boardCount !== 1 ? 's' : ''}`;
             const price = formatCurrency(booking.price || 0);
             const notes = booking.notes || '';
             const paymentLabel = booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
@@ -1194,7 +1196,7 @@
                             </div>
                             <p class="booking-schedule">${escapeHtml(startTime)} - ${escapeHtml(endTime)}</p>
                             <div class="booking-meta">
-                                <span class="meta-pill">${boardCount} Board${boardCount !== 1 ? 's' : ''}</span>
+                                <span class="meta-pill">${escapeHtml(boardLabel)}</span>
                                 <span class="meta-pill">${price}</span>
                                 <span class="meta-pill">${paymentLabel}</span>
                                 ${verifiedPill}

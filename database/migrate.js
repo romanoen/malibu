@@ -50,6 +50,7 @@ async function migrate() {
           id: booking.id,
           name: booking.name,
           phone: booking.phone,
+          boardType: booking.boardType || booking.board_type || 'single',
           numberOfBoards: booking.numberOfBoards || booking.number_of_boards,
           startTime: booking.startTime,
           endTime: booking.endTime,
