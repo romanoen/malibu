@@ -14,16 +14,14 @@ Mobile-first booking portal for SUP rentals with PayPal and cash payment workflo
 
 ## Prices
 
-- Singleboard 90 min.: 15,00 EUR
-- Singleboard 2h: 20,00 EUR
-- Singleboard 3h: 25,00 EUR
-- Singleboard 4h: 35,00 EUR
-- Partnerboard 90 min.: 25,00 EUR
-- Partnerboard 2h: 35,00 EUR
-- Partnerboard 3h: 40,00 EUR
-- Partnerboard 4h: 50,00 EUR
+- 90 min.: 15,00 EUR per board
+- 2h: 20,00 EUR per board
+- 3h: 30,00 EUR per board
+- 1/2 day: 40,00 EUR per board
+- Day ticket: 50,00 EUR per board
+- 2-person surcharge: 5,00 EUR per board
 
-Ganztageskarten, 10er Karten und Weekend-Karten werden nur persönlich ausgestellt und sind nicht online buchbar.
+Board categories: lightweight up to ca. 65 kg, allround women up to ca. 80 kg, super-allround up to ca. 120 kg, bigboards up to ca. 180 kg. Super-allround boards can be booked for 2 people; bigboards are for 2 adults only.
 
 ## Setup
 

@@ -38,27 +38,52 @@
                 <section class="form-section">
                     <h2>Ausleihe</h2>
                     <div class="form-group compact-group">
-                        <span class="field-label">Board-Typ</span>
-                        <div class="board-type-options" aria-label="Board-Typ">
+                        <span class="field-label">Board-Kategorie</span>
+                        <div class="board-type-options" aria-label="Board-Kategorie">
                             <label class="board-type-option">
-                                <input type="radio" name="boardType" value="single" checked required>
-                                <span>Singleboard</span>
+                                <input type="radio" name="boardType" value="lightweight" required>
+                                <span>Leichtgewicht <small>bis ca. 65 kg</small></span>
                             </label>
                             <label class="board-type-option">
-                                <input type="radio" name="boardType" value="partner" required>
-                                <span>Partnerboard</span>
+                                <input type="radio" name="boardType" value="allround" checked required>
+                                <span>Allround Damen <small>bis ca. 80 kg</small></span>
+                            </label>
+                            <label class="board-type-option">
+                                <input type="radio" name="boardType" value="super_allround" required>
+                                <span>Super-Allround <small>bis ca. 120 kg</small></span>
+                            </label>
+                            <label class="board-type-option">
+                                <input type="radio" name="boardType" value="bigboard" required>
+                                <span>Bigboard <small>bis ca. 180 kg</small></span>
                             </label>
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="numberOfBoards">Anzahl Boards</label>
-                        <div class="board-stepper">
-                            <button type="button" class="stepper-btn" data-board-step="-1" aria-label="Ein Board weniger">−</button>
-                            <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" inputmode="numeric" required>
-                            <button type="button" class="stepper-btn" data-board-step="1" aria-label="Ein Board mehr">+</button>
+                    <div class="field-grid two-columns">
+                        <div class="form-group">
+                            <label for="numberOfBoards">Anzahl Boards</label>
+                            <div class="board-stepper">
+                                <button type="button" class="stepper-btn" data-board-step="-1" aria-label="Ein Board weniger">−</button>
+                                <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" inputmode="numeric" required>
+                                <button type="button" class="stepper-btn" data-board-step="1" aria-label="Ein Board mehr">+</button>
+                            </div>
+                        </div>
+
+                        <div class="form-group compact-group">
+                            <span class="field-label">Personen pro Board</span>
+                            <div class="people-options" aria-label="Personen pro Board">
+                                <label class="people-option">
+                                    <input type="radio" name="peoplePerBoard" value="1" checked required>
+                                    <span>1</span>
+                                </label>
+                                <label class="people-option">
+                                    <input type="radio" name="peoplePerBoard" value="2" required>
+                                    <span>2 (+5 €)</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
+                    <small id="boardOccupancyHint" class="form-hint hidden" aria-live="polite"></small>
 
                     <div class="field-grid two-columns">
                         <div class="form-group">
@@ -80,7 +105,7 @@
                             <button type="button" class="duration-btn" data-duration-minutes="90">90 min</button>
                             <button type="button" class="duration-btn" data-duration-minutes="120">2 h</button>
                             <button type="button" class="duration-btn" data-duration-minutes="180">3 h</button>
-                            <button type="button" class="duration-btn" data-duration-minutes="240">4 h</button>
+                            <button type="button" class="duration-btn" data-duration-minutes="240">1/2 Tag</button>
                             <button type="button" class="duration-btn" data-duration-custom="true">Andere</button>
                         </div>
                     </div>
@@ -161,19 +186,15 @@
             <details class="pricing-info">
                 <summary>Preise & Kontakt</summary>
                 <ul>
-                    <li><strong>Singleboards</strong></li>
-                    <li>SUP Board 90 min.: 15,00€</li>
-                    <li>SUP Board 2h: 20,00€</li>
-                    <li>SUP Board 3h: 25,00€</li>
-                    <li>SUP Board 4h: 35,00€</li>
-                    <li><strong>Partnerboards</strong></li>
-                    <li>Partnerboard 90 min.: 25,00€</li>
-                    <li>Partnerboard 2h: 35,00€</li>
-                    <li>Partnerboard 3h: 40,00€</li>
-                    <li>Partnerboard 4h: 50,00€</li>
+                    <li>90 Minuten: 15,00€</li>
+                    <li>2h: 20,00€</li>
+                    <li>3h: 30,00€</li>
+                    <li>1/2 Tag: 40,00€</li>
+                    <li>Tagesticket: 50,00€</li>
+                    <li>Zuschlag für 2 Personen pro Brett: 5,00€</li>
                 </ul>
-                <p class="included-note">(inkl. Paddel, Sicherheitsleine und Seesack)</p>
-                <p class="included-note">Ganztageskarten, 10er Karten und Weekend-Karten stellen wir nur persönlich aus.</p>
+                <p class="included-note">(pro Board inkl. Vario-Paddel, Seesack und ggf. Schwimmweste)</p>
+                <p class="included-note">Leichtgewicht bis ca. 65 kg, Allround Damen bis ca. 80 kg, Super-Allround bis ca. 120 kg, Bigboards bis ca. 180 kg.</p>
                 <p class="contact-note">
                     Für spezielle Gruppenrabatte, Firmenevents oder ähnliches:<br>
                     Telefon: <a href="tel:+4915222658679">0152 22 65 8679</a><br>

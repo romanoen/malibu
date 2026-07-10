@@ -72,13 +72,14 @@ app.post('/api/bookings', async (req, res) => {
       phone,
       boardType,
       numberOfBoards,
+      peoplePerBoard,
       startTime,
       endTime,
       paymentMethod,
       duration
     } = validation.booking;
 
-    const priceResult = calculatePrice(duration, numberOfBoards, boardType);
+    const priceResult = calculatePrice(duration, numberOfBoards, boardType, peoplePerBoard);
     const price = priceResult.price;
     
     const booking = {
@@ -87,6 +88,7 @@ app.post('/api/bookings', async (req, res) => {
       phone,
       boardType,
       numberOfBoards,
+      peoplePerBoard,
       startTime,
       endTime,
       duration,
@@ -120,6 +122,7 @@ app.post('/api/bookings', async (req, res) => {
         id: booking.id,
         name: booking.name,
         boardType: booking.boardType,
+        peoplePerBoard: booking.peoplePerBoard,
         price: booking.price,
         paymentMethod: booking.paymentMethod,
         status: booking.status,
@@ -357,14 +360,18 @@ app.post('/api/calculate-price', (req, res) => {
     const priceResult = calculatePrice(
       validation.booking.duration,
       validation.booking.numberOfBoards,
-      validation.booking.boardType
+      validation.booking.boardType,
+      validation.booking.peoplePerBoard
     );
     
     res.json({ 
       price: priceResult.price,
       isDayRate: priceResult.isDayRate,
       pricePerBoard: priceResult.pricePerBoard,
-      boardType: priceResult.boardType
+      basePricePerBoard: priceResult.basePricePerBoard,
+      occupancySurchargePerBoard: priceResult.occupancySurchargePerBoard,
+      boardType: priceResult.boardType,
+      peoplePerBoard: priceResult.peoplePerBoard
     });
   } catch (error) {
     res.status(500).json({ error: 'Failed to calculate price' });

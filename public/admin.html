@@ -1152,6 +1152,19 @@
             }, 10000);
         }
 
+        function getBoardTypeLabel(boardType) {
+            const labels = {
+                lightweight: 'Leichtgewicht',
+                allround: 'Allround Damen',
+                super_allround: 'Super-Allround',
+                bigboard: 'Bigboard',
+                single: 'Singleboard',
+                partner: 'Partnerboard'
+            };
+
+            return labels[boardType] || 'Board';
+        }
+
         function renderBooking(booking) {
             const startDate = new Date(booking.startTime);
             const endDate = new Date(booking.endTime);
@@ -1166,8 +1179,9 @@
             const saveNotesAction = escapeHtml(`saveNotes(${bookingIdJs}, this)`);
             const deleteAction = escapeHtml(`deleteBooking(${bookingIdJs}, ${bookingNameJs}, this)`);
             const boardCount = Number.parseInt(booking.numberOfBoards, 10) || 0;
-            const boardType = booking.boardType === 'partner' ? 'Partnerboard' : 'Singleboard';
-            const boardLabel = `${boardCount} ${boardType}${boardCount !== 1 ? 's' : ''}`;
+            const peoplePerBoard = Number.parseInt(booking.peoplePerBoard, 10) || (booking.boardType === 'partner' ? 2 : 1);
+            const boardType = getBoardTypeLabel(booking.boardType);
+            const boardLabel = `${boardCount}x ${boardType}, ${peoplePerBoard} Pers./Board`;
             const price = formatCurrency(booking.price || 0);
             const notes = booking.notes || '';
             const paymentLabel = booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';

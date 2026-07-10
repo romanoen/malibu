@@ -35,6 +35,7 @@ async function initDatabase() {
       // Ensure notes column exists (run after table creation)
       await ensureNotesColumn();
       await ensureBoardTypeColumn();
+      await ensurePeoplePerBoardColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -97,10 +98,22 @@ async function ensureBoardTypeColumn() {
   if (!usePostgreSQL) return;
 
   try {
-    await pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS board_type TEXT NOT NULL DEFAULT 'single'");
+    await pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS board_type TEXT NOT NULL DEFAULT 'allround'");
     console.log('✅ Board type column verified');
   } catch (error) {
     console.error('⚠️  Could not add board_type column:', error.message);
+  }
+}
+
+async function ensurePeoplePerBoardColumn() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS people_per_board INTEGER NOT NULL DEFAULT 1');
+    await pool.query("UPDATE bookings SET people_per_board = 2 WHERE board_type = 'partner'");
+    console.log('✅ People per board column verified');
+  } catch (error) {
+    console.error('⚠️  Could not add people_per_board column:', error.message);
   }
 }
 
@@ -114,6 +127,7 @@ async function readBookings() {
         phone,
         board_type as "boardType",
         number_of_boards as "numberOfBoards",
+        people_per_board as "peoplePerBoard",
         start_time as "startTime",
         end_time as "endTime",
         duration_hours as "durationHours",
@@ -161,17 +175,18 @@ async function saveBooking(booking) {
   if (usePostgreSQL) {
     await pool.query(`
       INSERT INTO bookings (
-        id, name, phone, board_type, number_of_boards, start_time, end_time,
+        id, name, phone, board_type, number_of_boards, people_per_board, start_time, end_time,
         duration_hours, duration_minutes, price, price_per_board,
         is_day_rate, payment_method, status, paypal_link, paypal_amount,
         payment_verified, verified_at, notes, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
     `, [
       booking.id,
       booking.name,
       booking.phone,
-      booking.boardType || 'single',
+      booking.boardType || 'allround',
       booking.numberOfBoards,
+      booking.peoplePerBoard || 1,
       booking.startTime,
       booking.endTime,
       booking.duration.hours,
@@ -277,6 +292,7 @@ async function findBookingById(bookingId) {
         phone,
         board_type as "boardType",
         number_of_boards as "numberOfBoards",
+        people_per_board as "peoplePerBoard",
         start_time as "startTime",
         end_time as "endTime",
         duration_hours as "durationHours",

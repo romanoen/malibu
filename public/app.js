@@ -8,6 +8,7 @@ const submitBtn = document.getElementById('submitBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
 const dayRateMessage = document.getElementById('dayRateMessage');
+const boardOccupancyHint = document.getElementById('boardOccupancyHint');
 const durationButtons = document.querySelectorAll('.duration-btn');
 const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]');
 const customDurationButton = document.querySelector('[data-duration-custom]');
@@ -16,11 +17,18 @@ const boardStepButtons = document.querySelectorAll('[data-board-step]');
 const paymentNote = document.getElementById('paymentNote');
 const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
 const boardTypeInputs = document.querySelectorAll('input[name="boardType"]');
+const peoplePerBoardInputs = document.querySelectorAll('input[name="peoplePerBoard"]');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
 const BOOKING_INTERVAL_MINUTES = 15;
-const MAX_ONLINE_DURATION_MINUTES = 4 * 60;
+const MAX_ONLINE_DURATION_MINUTES = (BOOKING_END_HOUR - BOOKING_START_HOUR) * 60;
+const BOARD_OCCUPANCY_RULES = {
+    lightweight: { label: 'Leichtgewicht', allowedPeoplePerBoard: [1] },
+    allround: { label: 'Allround Damen', allowedPeoplePerBoard: [1] },
+    super_allround: { label: 'Super-Allround', allowedPeoplePerBoard: [1, 2] },
+    bigboard: { label: 'Bigboard', allowedPeoplePerBoard: [2] }
+};
 let selectedFixedDurationMinutes = null;
 
 function timeToMinutes(timeString) {
@@ -40,7 +48,35 @@ function getBoardCount() {
 }
 
 function getBoardType() {
-    return document.querySelector('input[name="boardType"]:checked')?.value || 'single';
+    return document.querySelector('input[name="boardType"]:checked')?.value || 'allround';
+}
+
+function getPeoplePerBoard() {
+    const peoplePerBoard = parseInt(document.querySelector('input[name="peoplePerBoard"]:checked')?.value, 10);
+    return [1, 2].includes(peoplePerBoard) ? peoplePerBoard : null;
+}
+
+function getBoardOccupancyError(boardType, peoplePerBoard) {
+    const boardConfig = BOARD_OCCUPANCY_RULES[boardType];
+    if (!boardConfig || peoplePerBoard === null) {
+        return null;
+    }
+
+    if (boardConfig.allowedPeoplePerBoard.includes(peoplePerBoard)) {
+        return null;
+    }
+
+    if (boardType === 'bigboard') {
+        return 'Bigboards sind ausschließlich für 2 Erwachsene geeignet. Bitte wähle 2 Personen pro Board.';
+    }
+
+    return `${boardConfig.label}-Boards können nur mit 1 Person belegt werden. Bitte wähle für 2 Personen ein Super-Allround-Board oder Bigboard.`;
+}
+
+function showBoardOccupancyHint(message = '', isError = false) {
+    boardOccupancyHint.textContent = message;
+    boardOccupancyHint.classList.toggle('hidden', !message);
+    boardOccupancyHint.classList.toggle('error', Boolean(message && isError));
 }
 
 function generateTimeOptions({ includeClosingTime = false } = {}) {
@@ -152,6 +188,7 @@ function resetBookingUi() {
     totalPriceDisplay.textContent = '0,00 €';
     dayRateMessage.classList.add('hidden');
     paymentNote.classList.add('hidden');
+    showBoardOccupancyHint();
     endTimeSelect.innerHTML = buildEndTimeOptions();
     customTimeField.classList.add('hidden');
     selectedFixedDurationMinutes = null;
@@ -197,6 +234,10 @@ boardTypeInputs.forEach(input => {
     input.addEventListener('change', calculatePrice);
 });
 
+peoplePerBoardInputs.forEach(input => {
+    input.addEventListener('change', calculatePrice);
+});
+
 fixedDurationButtons.forEach(button => {
     button.addEventListener('click', () => {
         setEndTimeForDuration(parseInt(button.dataset.durationMinutes, 10));
@@ -227,8 +268,20 @@ async function calculatePrice() {
     const endTime = endTimeSelect.value;
     const numberOfBoards = getBoardCount();
     const boardType = getBoardType();
+    const peoplePerBoard = getPeoplePerBoard();
+    const occupancyError = getBoardOccupancyError(boardType, peoplePerBoard);
 
-    if (!bookingDate || !startTime || !endTime || numberOfBoards === null) {
+    if (occupancyError) {
+        totalPriceDisplay.textContent = '0,00 €';
+        dayRateMessage.classList.add('hidden');
+        showBoardOccupancyHint(occupancyError, true);
+        updateDurationButtons();
+        return;
+    }
+
+    showBoardOccupancyHint();
+
+    if (!bookingDate || !startTime || !endTime || numberOfBoards === null || peoplePerBoard === null) {
         totalPriceDisplay.textContent = '0,00 €';
         dayRateMessage.classList.add('hidden');
         updateDurationButtons();
@@ -248,7 +301,8 @@ async function calculatePrice() {
                 startTime: startDateTime,
                 endTime: endDateTime,
                 numberOfBoards,
-                boardType
+                boardType,
+                peoplePerBoard
             })
         });
 
@@ -256,6 +310,7 @@ async function calculatePrice() {
         if (!response.ok) {
             totalPriceDisplay.textContent = '0,00 €';
             dayRateMessage.classList.add('hidden');
+            showBoardOccupancyHint(data.error || 'Bitte prüfe Board-Kategorie und Personenanzahl.', true);
             return;
         }
 
@@ -263,6 +318,7 @@ async function calculatePrice() {
             totalPriceDisplay.textContent = `${data.price.toFixed(2)} €`;
             updateDurationButtons();
             dayRateMessage.classList.add('hidden');
+            showBoardOccupancyHint();
         }
     } catch (error) {
         console.error('Error calculating price:', error);
@@ -274,9 +330,19 @@ form.addEventListener('submit', async (e) => {
 
     const formData = new FormData(form);
     const paymentMethod = formData.get('paymentMethod');
+    const boardType = formData.get('boardType');
+    const parsedPeoplePerBoard = parseInt(formData.get('peoplePerBoard'), 10);
+    const peoplePerBoard = [1, 2].includes(parsedPeoplePerBoard) ? parsedPeoplePerBoard : null;
+    const occupancyError = getBoardOccupancyError(boardType, peoplePerBoard);
     const privacyCheck = document.getElementById('privacyCheck').checked;
     const safetyCheck = document.getElementById('safetyCheck').checked;
     const liabilityCheck = document.getElementById('liabilityCheck').checked;
+
+    if (occupancyError) {
+        showBoardOccupancyHint(occupancyError, true);
+        showErrorMessage(occupancyError);
+        return;
+    }
 
     if (!privacyCheck || !safetyCheck || !liabilityCheck) {
         showErrorMessage('Bitte akzeptiere Datenschutz, Leitfaden und Haftungsausschluss.');
@@ -303,8 +369,9 @@ form.addEventListener('submit', async (e) => {
         const bookingData = {
             name: formData.get('name'),
             phone: formData.get('phone'),
-            boardType: formData.get('boardType'),
+            boardType,
             numberOfBoards: parseInt(formData.get('numberOfBoards'), 10),
+            peoplePerBoard,
             startTime: `${bookingDate}T${startTime}:00`,
             endTime: `${bookingDate}T${endTime}:00`,
             paymentMethod

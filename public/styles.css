@@ -281,7 +281,14 @@ select {
     gap: 9px;
 }
 
-.payment-option {
+.people-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+}
+
+.payment-option,
+.people-option {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -309,7 +316,8 @@ select {
     cursor: pointer;
 }
 
-.payment-option:has(input:checked) {
+.payment-option:has(input:checked),
+.people-option:has(input:checked) {
     border-color: var(--water);
     background: #e8f7f8;
     color: var(--water-dark);
@@ -321,7 +329,8 @@ select {
     color: var(--water-dark);
 }
 
-.payment-option input[type="radio"] {
+.payment-option input[type="radio"],
+.people-option input[type="radio"] {
     width: 18px;
     height: 18px;
     accent-color: var(--water);
@@ -333,14 +342,34 @@ select {
     accent-color: var(--water);
 }
 
-.payment-option span {
+.payment-option span,
+.people-option span {
     font-size: 0.98rem;
     font-weight: 800;
 }
 
 .board-type-option span {
-    font-size: 0.98rem;
+    display: grid;
+    gap: 2px;
+    font-size: 0.96rem;
+    line-height: 1.18;
     font-weight: 800;
+}
+
+.board-type-option small {
+    color: var(--muted);
+    font-size: 0.76rem;
+    font-weight: 750;
+}
+
+.form-hint {
+    display: block;
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.form-hint.error {
+    color: var(--danger);
 }
 
 .cash-note {
@@ -658,7 +687,9 @@ footer {
     }
 
     .duration-btn,
-    .payment-option {
+    .payment-option,
+    .people-option,
+    .board-type-option {
         min-height: 46px;
     }
 
