@@ -665,7 +665,7 @@ function renderBookingOverview(booking, paypalUrl = null) {
     const paymentHtml = paymentMethod === 'paypal'
         ? `
             <strong>Zahlung noch offen?</strong>
-            Bitte sende ${escapeHtml(amount)} per PayPal an <strong>${escapeHtml(getPaypalName(paypalUrl))}</strong>.
+            Bitte sende ${escapeHtml(amount)} per PayPal an <strong>${escapeHtml(getPaypalName(paypalUrl))}</strong>
             <a href="${escapeHtml(getPlainPaypalLink(paypalUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(getPlainPaypalLink(paypalUrl))}</a>
         `
         : `
@@ -860,7 +860,7 @@ function showSuccessMessage(booking, paymentMethod, needsVerification = false, p
         revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
     } else if (paymentMethod === 'paypal') {
         successTitle.textContent = 'Reservierung angelegt';
-        successDetails.textContent = `Bitte öffne PayPal und sende ${formatMoney(booking.price)} an ${getPaypalName(paypalUrl)}. Danach zeigen wir dir deine Übersicht zum Speichern und Teilen.`;
+        successDetails.textContent = `Bitte öffne PayPal und sende ${formatMoney(booking.price)} an ${getPaypalName(paypalUrl)} und danach zeigen wir dir deine Übersicht zum Speichern und Teilen.`;
         successOverview.classList.add('hidden');
         successPaymentHint.classList.add('hidden');
         successVisitNote.classList.add('hidden');
