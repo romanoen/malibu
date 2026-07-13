@@ -749,7 +749,7 @@
         let isAuthenticated = false;
         let authStateVersion = 0;
         let currentPeriod = localStorage.getItem('adminPeriod') || 'month';
-        let expandedDays = JSON.parse(localStorage.getItem('adminExpandedDays') || '[]');
+        let expandedDays = readStoredJsonArray('adminExpandedDays');
         let lastBookingCount = 0;
         let lastBookingId = null;
         let isPolling = false;
@@ -792,6 +792,56 @@
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             }) + ' EUR';
+        }
+
+        function readStoredJsonArray(key) {
+            try {
+                const parsedValue = JSON.parse(localStorage.getItem(key) || '[]');
+                return Array.isArray(parsedValue) ? parsedValue : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function parseBookingDate(value) {
+            const date = new Date(value);
+            return Number.isNaN(date.getTime()) ? null : date;
+        }
+
+        function getBookingDateKey(value) {
+            const date = parseBookingDate(value);
+            if (!date) {
+                return 'Ohne Datum';
+            }
+
+            return date.toLocaleDateString('de-DE', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
+        function getBookingDateSortValue(value) {
+            const date = parseBookingDate(value);
+            if (!date) {
+                return Number.NEGATIVE_INFINITY;
+            }
+
+            return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+        }
+
+        function formatBookingTime(value) {
+            const date = parseBookingDate(value);
+            if (!date) {
+                return 'Keine Zeit';
+            }
+
+            return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        function toPositiveInteger(value, fallback = 1) {
+            const parsedValue = Number.parseInt(value, 10);
+            return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
         }
 
         async function readJson(response) {
@@ -1407,7 +1457,8 @@
                     throw new Error();
                 }
 
-                const bookings = await readJson(response) || [];
+                const bookingsData = await readJson(response) || [];
+                const bookings = Array.isArray(bookingsData) ? bookingsData : [];
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
                 const hadPreviousState = lastBookingId !== null;
@@ -1437,17 +1488,11 @@
                 const dateMap = {};
 
                 bookings.forEach(booking => {
-                    const date = new Date(booking.startTime);
-                    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                    const dateKey = date.toLocaleDateString('de-DE', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    });
+                    const dateKey = getBookingDateKey(booking.startTime);
 
                     if (!bookingsByDate[dateKey]) {
                         bookingsByDate[dateKey] = [];
-                        dateMap[dateKey] = dateOnly;
+                        dateMap[dateKey] = getBookingDateSortValue(booking.startTime);
                     }
                     bookingsByDate[dateKey].push(booking);
                 });
@@ -1462,17 +1507,16 @@
                 lastBookingId = newestBookingId;
                 hasLoadedOnce = true;
 
-                const today = new Date();
-                const todayKey = today.toLocaleDateString('de-DE', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                });
+                const todayKey = getBookingDateKey(new Date());
 
                 let html = '';
                 sortedDates.forEach(dateKey => {
                     const dayBookings = bookingsByDate[dateKey];
-                    dayBookings.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+                    dayBookings.sort((a, b) => {
+                        const leftDate = parseBookingDate(a.startTime);
+                        const rightDate = parseBookingDate(b.startTime);
+                        return (leftDate?.getTime() || 0) - (rightDate?.getTime() || 0);
+                    });
                     const isExpanded = expandedDays.includes(dateKey);
                     const isToday = dateKey === todayKey;
                     const dateKeyJs = toJsString(dateKey);
@@ -1508,7 +1552,7 @@
                                 </div>
                             </button>
                             <div class="day-bookings ${isExpanded ? 'expanded' : ''}" id="${dayId}">
-                                ${dayBookings.map(booking => renderBooking(booking)).join('')}
+                                ${dayBookings.map(booking => renderBookingSafely(booking)).join('')}
                             </div>
                         </section>
                     `;
@@ -1615,31 +1659,84 @@
 
         function getBookingBoardItems(booking) {
             if (Array.isArray(booking.boardItems) && booking.boardItems.length > 0) {
-                return booking.boardItems;
+                const normalizedItems = booking.boardItems
+                    .map(item => normalizeBookingBoardItem(item, booking))
+                    .filter(Boolean);
+
+                if (normalizedItems.length > 0) {
+                    return normalizedItems;
+                }
             }
 
-            return [{
-                boardType: booking.boardType,
-                quantity: Number.parseInt(booking.numberOfBoards, 10) || 0,
-                peoplePerBoard: Number.parseInt(booking.peoplePerBoard, 10) || (booking.boardType === 'partner' ? 2 : 1)
-            }];
+            return [normalizeBookingBoardItem({}, booking)];
+        }
+
+        function normalizeBookingBoardItem(item = {}, booking = {}) {
+            if (!item || typeof item !== 'object') {
+                return null;
+            }
+
+            const boardType = item.boardType || item.board_type || booking.boardType || booking.board_type || 'allround';
+            const quantity = toPositiveInteger(
+                item.quantity || item.numberOfBoards || item.number_of_boards,
+                toPositiveInteger(booking.numberOfBoards || booking.number_of_boards, 1)
+            );
+            const peoplePerBoard = toPositiveInteger(
+                item.peoplePerBoard || item.people_per_board,
+                toPositiveInteger(
+                    booking.peoplePerBoard || booking.people_per_board,
+                    boardType === 'partner' || boardType === 'bigboard' ? 2 : 1
+                )
+            );
+
+            return { boardType, quantity, peoplePerBoard };
         }
 
         function formatBoardItems(booking) {
             return getBookingBoardItems(booking)
                 .map(item => {
-                    const quantity = Number.parseInt(item.quantity || item.numberOfBoards, 10) || 0;
-                    const peoplePerBoard = Number.parseInt(item.peoplePerBoard, 10) || (item.boardType === 'partner' ? 2 : 1);
+                    const quantity = toPositiveInteger(item.quantity || item.numberOfBoards, 1);
+                    const peoplePerBoard = toPositiveInteger(item.peoplePerBoard, item.boardType === 'partner' ? 2 : 1);
                     return `${quantity}x ${getBoardTypeLabel(item.boardType)}, ${peoplePerBoard} Pers./Board`;
                 })
                 .join(' / ');
         }
 
+        function renderBookingSafely(booking) {
+            try {
+                return renderBooking(booking);
+            } catch (error) {
+                console.error('Error rendering booking:', booking?.id, error);
+                return renderBookingFallback(booking);
+            }
+        }
+
+        function renderBookingFallback(booking = {}) {
+            const bookingName = String(booking.name || 'Ohne Namen');
+            const bookingId = String(booking.id || '');
+            return `
+                <article class="booking-card">
+                    <div class="booking-header">
+                        <div class="booking-main">
+                            <div class="booking-topline">
+                                <h3>${escapeHtml(bookingName)}</h3>
+                                <span class="status-badge status-pending">Prüfen</span>
+                            </div>
+                            <p class="booking-schedule">${escapeHtml(formatBookingTime(booking.startTime))} - ${escapeHtml(formatBookingTime(booking.endTime))}</p>
+                            <div class="booking-meta">
+                                <span class="meta-pill">Buchung konnte nicht vollständig dargestellt werden</span>
+                                <span class="meta-pill">${escapeHtml(formatCurrency(booking.price || 0))}</span>
+                            </div>
+                            <p class="booking-phone">ID ${escapeHtml(bookingId)}</p>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
         function renderBooking(booking) {
-            const startDate = new Date(booking.startTime);
-            const endDate = new Date(booking.endTime);
-            const startTime = startDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-            const endTime = endDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const startTime = formatBookingTime(booking.startTime);
+            const endTime = formatBookingTime(booking.endTime);
             const bookingId = String(booking.id ?? '');
             const bookingIdJs = toJsString(bookingId);
             const bookingName = String(booking.name || 'Ohne Namen');

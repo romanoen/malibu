@@ -168,27 +168,58 @@ function isValidPushSubscription(subscription) {
     typeof subscription.keys.auth === 'string';
 }
 
+function toPositiveInteger(value, fallback = 1) {
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
+}
+
+function normalizeStoredBoardItem(item = {}, booking = {}) {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const boardType = item.boardType || item.board_type || booking.boardType || booking.board_type || 'allround';
+  const quantity = toPositiveInteger(
+    item.quantity || item.numberOfBoards || item.number_of_boards,
+    toPositiveInteger(booking.numberOfBoards || booking.number_of_boards, 1)
+  );
+  const peoplePerBoard = toPositiveInteger(
+    item.peoplePerBoard || item.people_per_board,
+    toPositiveInteger(
+      booking.peoplePerBoard || booking.people_per_board,
+      boardType === 'partner' || boardType === 'bigboard' ? 2 : 1
+    )
+  );
+
+  return {
+    boardType,
+    quantity,
+    peoplePerBoard
+  };
+}
+
 function buildLegacyBoardItems(booking = {}) {
-  return [{
-    boardType: booking.boardType || booking.board_type || 'allround',
-    quantity: booking.numberOfBoards || booking.number_of_boards || 1,
-    peoplePerBoard: booking.peoplePerBoard || booking.people_per_board || (booking.boardType === 'partner' || booking.board_type === 'partner' ? 2 : 1)
-  }];
+  return [normalizeStoredBoardItem({}, booking)];
 }
 
 function normalizeStoredBoardItems(value, booking = {}) {
-  if (Array.isArray(value) && value.length > 0) {
-    return value;
-  }
+  let boardItems = value;
 
-  if (typeof value === 'string') {
+  if (typeof boardItems === 'string') {
     try {
-      const parsedValue = JSON.parse(value);
-      if (Array.isArray(parsedValue) && parsedValue.length > 0) {
-        return parsedValue;
-      }
+      boardItems = JSON.parse(boardItems);
     } catch (error) {
       return buildLegacyBoardItems(booking);
+    }
+  }
+
+  if (Array.isArray(boardItems) && boardItems.length > 0) {
+    const normalizedItems = boardItems
+      .map(item => normalizeStoredBoardItem(item, booking))
+      .filter(Boolean);
+
+    if (normalizedItems.length > 0) {
+      return normalizedItems;
     }
   }
 
