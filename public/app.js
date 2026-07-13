@@ -9,6 +9,15 @@ const summaryPeopleDisplay = document.getElementById('summaryPeople');
 const summaryBoardsDisplay = document.getElementById('summaryBoards');
 const submitBtn = document.getElementById('submitBtn');
 const successMessage = document.getElementById('successMessage');
+const successTitle = document.getElementById('successTitle');
+const successDetails = document.getElementById('successDetails');
+const successOverview = document.getElementById('successOverview');
+const successPaymentHint = document.getElementById('successPaymentHint');
+const successVisitNote = document.getElementById('successVisitNote');
+const paypalButton = document.getElementById('paypalLinkButton');
+const calendarButton = document.getElementById('calendarButton');
+const shareButton = document.getElementById('shareButton');
+const whatsappShareButton = document.getElementById('whatsappShareButton');
 const errorMessage = document.getElementById('errorMessage');
 const dayRateMessage = document.getElementById('dayRateMessage');
 const boardOccupancyHint = document.getElementById('boardOccupancyHint');
@@ -35,8 +44,12 @@ const BOARD_TYPE_OPTIONS = [
     { value: 'super_allround', label: '3 Super-Allround' },
     { value: 'bigboard', label: '4 Bigboard' }
 ];
+const BUSINESS_NAME = 'Malibu SUP Kressbronn';
+const BUSINESS_ADDRESS = 'Uferweg 2, 88079 Kressbronn';
+const CALENDAR_TIME_ZONE = 'Europe/Berlin';
 let boardItemId = 0;
 let selectedFixedDurationMinutes = null;
+let lastCompletedBooking = null;
 
 function timeToMinutes(timeString) {
     const [hour, minute] = timeString.split(':').map(Number);
@@ -462,6 +475,275 @@ async function calculatePrice() {
     }
 }
 
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+function formatMoney(amount) {
+    return Number.parseFloat(amount || 0).toLocaleString('de-DE', {
+        style: 'currency',
+        currency: 'EUR'
+    });
+}
+
+function formatBookingDate(value) {
+    return new Date(value).toLocaleDateString('de-DE', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function formatBookingTime(value) {
+    return new Date(value).toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function getPaymentLabel(paymentMethod) {
+    return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+}
+
+function getPaypalName(paypalUrl = '') {
+    const match = String(paypalUrl).match(/paypal\.me\/([^/?#]+)/i);
+    return match ? decodeURIComponent(match[1]) : 'KlausOelfken';
+}
+
+function getPlainPaypalLink(paypalUrl = '') {
+    if (!paypalUrl) {
+        return 'https://paypal.me/KlausOelfken';
+    }
+
+    return String(paypalUrl);
+}
+
+function formatBoardItemsForDisplay(boardItems = []) {
+    return boardItems.map(item => {
+        const boardConfig = BOARD_OCCUPANCY_RULES[item.boardType];
+        const label = boardConfig?.label || 'Board';
+        const people = Number.parseInt(item.peoplePerBoard, 10) || 1;
+        return `${label} (${people} Pers.)`;
+    }).join(', ');
+}
+
+function getBookingShareText(booking, paypalUrl = null) {
+    const paymentMethod = booking.paymentMethod || 'cash';
+    const amount = formatMoney(booking.price);
+    const paymentText = paymentMethod === 'paypal'
+        ? `Falls noch nicht bezahlt: ${amount} per PayPal an ${getPaypalName(paypalUrl)} senden: ${getPlainPaypalLink(paypalUrl)}.`
+        : `Barzahlung: ${amount} passend mitbringen, vor Ort in einen beschrifteten Umschlag legen und in den passenden Briefkasten werfen.`;
+
+    return [
+        `${BUSINESS_NAME}`,
+        booking.name ? `Reserviert für: ${booking.name}` : null,
+        `${formatBookingDate(booking.startTime)}, ${formatBookingTime(booking.startTime)}-${formatBookingTime(booking.endTime)} Uhr`,
+        `Adresse: ${BUSINESS_ADDRESS}`,
+        `Boards: ${formatBoardItemsForDisplay(booking.boardItems)}`,
+        `Personen: ${getBookingSummary(booking.boardItems).people}`,
+        `Betrag: ${amount}`,
+        paymentText,
+        'Wir freuen uns auf den Besuch am Bodensee.'
+    ].filter(Boolean).join('\n');
+}
+
+function escapeIcsText(value) {
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;');
+}
+
+function formatIcsUtcDate(value) {
+    return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function formatIcsLocalDateTime(value) {
+    const match = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (match) {
+        return `${match[1]}${match[2]}${match[3]}T${match[4]}${match[5]}${match[6] || '00'}`;
+    }
+
+    const date = new Date(value);
+    return [
+        date.getFullYear().toString().padStart(4, '0'),
+        (date.getMonth() + 1).toString().padStart(2, '0'),
+        date.getDate().toString().padStart(2, '0'),
+        'T',
+        date.getHours().toString().padStart(2, '0'),
+        date.getMinutes().toString().padStart(2, '0'),
+        date.getSeconds().toString().padStart(2, '0')
+    ].join('');
+}
+
+function createCalendarContent(booking, paypalUrl = null) {
+    const description = getBookingShareText(booking, paypalUrl);
+    const uid = `${booking.id || Date.now()}@malibu-sup-kressbronn`;
+
+    return [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Malibu SUP Kressbronn//Buchung//DE',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        'BEGIN:VEVENT',
+        `UID:${escapeIcsText(uid)}`,
+        `DTSTAMP:${formatIcsUtcDate(new Date())}`,
+        `DTSTART;TZID=${CALENDAR_TIME_ZONE}:${formatIcsLocalDateTime(booking.startTime)}`,
+        `DTEND;TZID=${CALENDAR_TIME_ZONE}:${formatIcsLocalDateTime(booking.endTime)}`,
+        `SUMMARY:${escapeIcsText(`SUP bei ${BUSINESS_NAME}`)}`,
+        `LOCATION:${escapeIcsText(`${BUSINESS_NAME}, ${BUSINESS_ADDRESS}`)}`,
+        `DESCRIPTION:${escapeIcsText(description)}`,
+        'END:VEVENT',
+        'END:VCALENDAR'
+    ].join('\r\n');
+}
+
+function downloadCalendarEntry(booking, paypalUrl = null) {
+    const blob = new Blob([createCalendarContent(booking, paypalUrl)], {
+        type: 'text/calendar;charset=utf-8'
+    });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'malibu-sup-buchung.ics';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(downloadUrl);
+}
+
+function flashButtonText(button, text) {
+    const originalText = button.textContent;
+    button.textContent = text;
+    setTimeout(() => {
+        if (button.isConnected) {
+            button.textContent = originalText;
+        }
+    }, 1800);
+}
+
+async function shareBooking(booking, paypalUrl = null, button = null) {
+    const text = getBookingShareText(booking, paypalUrl);
+
+    if (navigator.share) {
+        await navigator.share({
+            title: 'Meine SUP-Buchung',
+            text
+        });
+        return;
+    }
+
+    if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        if (button) {
+            flashButtonText(button, 'Kopiert');
+        }
+    }
+}
+
+function setSuccessActionVisibility({ paypal = false, finalActions = false } = {}) {
+    paypalButton.classList.toggle('hidden', !paypal);
+    calendarButton.classList.toggle('hidden', !finalActions);
+    shareButton.classList.toggle('hidden', !finalActions);
+    whatsappShareButton.classList.toggle('hidden', !finalActions);
+}
+
+function renderBookingOverview(booking, paypalUrl = null) {
+    const summary = getBookingSummary(booking.boardItems);
+    const amount = formatMoney(booking.price);
+    const paymentMethod = booking.paymentMethod || 'cash';
+    const paymentLabel = getPaymentLabel(paymentMethod);
+    const paymentHtml = paymentMethod === 'paypal'
+        ? `
+            <strong>Zahlung noch offen?</strong>
+            Bitte sende ${escapeHtml(amount)} per PayPal an <strong>${escapeHtml(getPaypalName(paypalUrl))}</strong>.
+            <a href="${escapeHtml(getPlainPaypalLink(paypalUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(getPlainPaypalLink(paypalUrl))}</a>
+        `
+        : `
+            <strong>Barzahlung vor Ort:</strong>
+            Bitte bringe ${escapeHtml(amount)} passend mit, lege es in einen beschrifteten Umschlag und wirf ihn in den passenden, beschrifteten Briefkasten.
+        `;
+
+    successOverview.innerHTML = `
+        <div class="success-overview-grid">
+            <div>
+                <span>Datum</span>
+                <strong>${escapeHtml(formatBookingDate(booking.startTime))}</strong>
+            </div>
+            <div>
+                <span>Zeitraum</span>
+                <strong>${escapeHtml(formatBookingTime(booking.startTime))}-${escapeHtml(formatBookingTime(booking.endTime))} Uhr</strong>
+            </div>
+            <div>
+                <span>Boards</span>
+                <strong>${escapeHtml(String(summary.boards))}</strong>
+            </div>
+            <div>
+                <span>Personen</span>
+                <strong>${escapeHtml(String(summary.people))}</strong>
+            </div>
+            <div>
+                <span>Betrag</span>
+                <strong>${escapeHtml(amount)}</strong>
+            </div>
+            <div>
+                <span>Zahlung</span>
+                <strong>${escapeHtml(paymentLabel)}</strong>
+            </div>
+        </div>
+        <div class="success-detail-row">
+            <span>Auswahl</span>
+            <strong>${escapeHtml(formatBoardItemsForDisplay(booking.boardItems))}</strong>
+        </div>
+        ${booking.name ? `
+            <div class="success-detail-row">
+                <span>Reserviert für</span>
+                <strong>${escapeHtml(booking.name)}</strong>
+            </div>
+        ` : ''}
+        <div class="success-detail-row">
+            <span>Adresse</span>
+            <strong>${escapeHtml(BUSINESS_ADDRESS)}</strong>
+        </div>
+    `;
+    successPaymentHint.innerHTML = paymentHtml;
+    successOverview.classList.remove('hidden');
+    successPaymentHint.classList.remove('hidden');
+    successVisitNote.classList.remove('hidden');
+}
+
+function revealFinalSuccess(booking, paymentMethod, paypalUrl = null) {
+    renderBookingOverview(booking, paypalUrl);
+    setSuccessActionVisibility({ paypal: paymentMethod === 'paypal' && Boolean(paypalUrl), finalActions: true });
+
+    if (paypalUrl) {
+        paypalButton.href = paypalUrl;
+    }
+
+    successTitle.textContent = 'Buchung gespeichert';
+    successDetails.textContent = paymentMethod === 'paypal'
+        ? 'Deine Reservierung ist gespeichert. Unten findest du alle Details zum Merken und Teilen.'
+        : 'Deine Reservierung ist gespeichert. Unten findest du alle Details zum Merken und Teilen.';
+
+    const shareText = getBookingShareText(booking, paypalUrl);
+    whatsappShareButton.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+    calendarButton.onclick = () => downloadCalendarEntry(booking, paypalUrl);
+    shareButton.onclick = () => {
+        shareBooking(booking, paypalUrl, shareButton).catch(error => {
+            console.error('Share error:', error);
+        });
+    };
+}
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -524,6 +806,16 @@ form.addEventListener('submit', async (e) => {
             throw new Error(data.error || 'Fehler bei der Buchung');
         }
 
+        const completedBooking = {
+            ...data.booking,
+            name: bookingData.name,
+            phone: bookingData.phone,
+            boardItems,
+            startTime: bookingData.startTime,
+            endTime: bookingData.endTime,
+            paymentMethod
+        };
+
         if (paymentMethod === 'paypal') {
             if (data.booking.paypalLink) {
                 let paypalUrl = data.booking.paypalLink;
@@ -536,12 +828,12 @@ form.addEventListener('submit', async (e) => {
                     paypalUrl = `${paypalUrl}/${parseFloat(data.booking.paypalAmount).toFixed(2)}`;
                 }
 
-                showSuccessMessage(data.booking, 'paypal', true, paypalUrl);
+                showSuccessMessage(completedBooking, 'paypal', true, paypalUrl);
             } else {
-                showSuccessMessage(data.booking, 'paypal', true);
+                showSuccessMessage(completedBooking, 'paypal', true);
             }
         } else {
-            showSuccessMessage(data.booking, 'cash');
+            showSuccessMessage(completedBooking, 'cash');
         }
     } catch (error) {
         console.error('Booking error:', error);
@@ -553,36 +845,42 @@ form.addEventListener('submit', async (e) => {
 });
 
 function showSuccessMessage(booking, paymentMethod, needsVerification = false, paypalUrl = null) {
-    let details = '';
-    const paypalButton = document.getElementById('paypalLinkButton');
+    lastCompletedBooking = {
+        ...booking,
+        paymentMethod
+    };
+    paypalButton.onclick = null;
+    calendarButton.onclick = null;
+    shareButton.onclick = null;
+    whatsappShareButton.href = '#';
 
     if (paymentMethod === 'cash') {
-        details = `Deine Buchung wurde erstellt. Bitte lege ${booking.price.toFixed(2)}€ in bar vor Ort in einen beschrifteten Umschlag und wirf ihn in den passenden, beschrifteten Briefkasten.`;
-        paypalButton.style.display = 'none';
-        paypalButton.classList.add('hidden');
+        successTitle.textContent = 'Buchung erstellt';
+        successDetails.textContent = 'Danke für deine Reservierung. Hier ist deine Übersicht.';
+        revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
     } else if (paymentMethod === 'paypal') {
-        if (needsVerification) {
-            details = `Deine Buchung wurde erstellt. Bitte schließe die Zahlung über PayPal ab (${booking.price.toFixed(2)}€).`;
-        } else {
-            details = `Deine Buchung wurde erfolgreich abgeschlossen. PayPal-Zahlung: ${booking.price.toFixed(2)}€.`;
-        }
+        successTitle.textContent = 'Reservierung angelegt';
+        successDetails.textContent = `Bitte öffne PayPal und sende ${formatMoney(booking.price)} an ${getPaypalName(paypalUrl)}. Danach zeigen wir dir deine Übersicht zum Speichern und Teilen.`;
+        successOverview.classList.add('hidden');
+        successPaymentHint.classList.add('hidden');
+        successVisitNote.classList.add('hidden');
+        setSuccessActionVisibility({ paypal: true, finalActions: false });
 
         if (paypalUrl) {
             paypalButton.href = paypalUrl;
-            paypalButton.style.display = 'inline-flex';
-            paypalButton.classList.remove('hidden');
-            paypalButton.onclick = null;
+            paypalButton.onclick = () => {
+                revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
+            };
         } else {
-            paypalButton.style.display = 'none';
-            paypalButton.classList.add('hidden');
+            setSuccessActionVisibility({ paypal: false, finalActions: false });
+            revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
         }
     } else {
-        details = `Deine Buchung wurde erfolgreich abgeschlossen. Zahlung erhalten: ${booking.price.toFixed(2)}€.`;
-        paypalButton.style.display = 'none';
-        paypalButton.classList.add('hidden');
+        successTitle.textContent = 'Buchung erstellt';
+        successDetails.textContent = 'Danke für deine Reservierung. Hier ist deine Übersicht.';
+        revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
     }
 
-    document.getElementById('successDetails').textContent = details;
     successMessage.classList.remove('hidden');
     form.reset();
     resetBookingUi();

@@ -138,11 +138,20 @@
             </div>
 
             <div id="successMessage" class="success-message hidden">
-                <h2>Buchung erstellt</h2>
+                <p class="success-kicker">Reservierung</p>
+                <h2 id="successTitle">Buchung erstellt</h2>
                 <p id="successDetails"></p>
-                <a id="paypalLinkButton" href="#" target="_blank" class="paypal-button hidden">
-                    Jetzt bei PayPal bezahlen
-                </a>
+                <div id="successOverview" class="success-overview hidden"></div>
+                <div id="successPaymentHint" class="success-payment-hint hidden"></div>
+                <div id="successActions" class="success-actions">
+                    <a id="paypalLinkButton" href="#" target="_blank" rel="noopener noreferrer" class="paypal-button hidden">
+                        Jetzt bei PayPal bezahlen
+                    </a>
+                    <button type="button" id="calendarButton" class="secondary-action hidden">Zum Kalender hinzufügen</button>
+                    <button type="button" id="shareButton" class="secondary-action hidden">Teilen</button>
+                    <a id="whatsappShareButton" href="#" target="_blank" rel="noopener noreferrer" class="secondary-action hidden">WhatsApp</a>
+                </div>
+                <p id="successVisitNote" class="success-visit-note hidden">Wir freuen uns auf deinen Besuch am Bodensee.</p>
             </div>
 
             <div id="errorMessage" class="error-message hidden">
