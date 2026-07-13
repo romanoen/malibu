@@ -25,6 +25,9 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const CHECKIN_NOTIFICATION_POLL_MS = Number.parseInt(process.env.CHECKIN_NOTIFICATION_POLL_MS || '15000', 10);
+const CHECKIN_NOTIFICATION_GRACE_MS = (Number.parseInt(process.env.CHECKIN_NOTIFICATION_GRACE_MINUTES || '15', 10)) * 60 * 1000;
+const BOOKING_TIME_ZONE = process.env.BOOKING_TIME_ZONE || 'Europe/Berlin';
 const configuredVapidKeys = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
   ? {
       publicKey: process.env.VAPID_PUBLIC_KEY,
@@ -34,6 +37,8 @@ const configuredVapidKeys = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PR
 const vapidKeys = configuredVapidKeys || webpush.generateVAPIDKeys();
 const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:info@malibu-sup.local';
 let httpServer = null;
+let checkinNotificationInterval = null;
+let isProcessingCheckinNotifications = false;
 
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 webpush.setVapidDetails(vapidSubject, vapidKeys.publicKey, vapidKeys.privateKey);
@@ -100,6 +105,13 @@ function formatCurrency(amount) {
   }) + ' EUR';
 }
 
+function formatPushCurrency(amount) {
+  return Number.parseFloat(amount || 0).toLocaleString('de-DE', {
+    style: 'currency',
+    currency: 'EUR'
+  });
+}
+
 function formatPdfTime(value) {
   return new Date(value).toLocaleTimeString('de-DE', {
     hour: '2-digit',
@@ -107,24 +119,116 @@ function formatPdfTime(value) {
   });
 }
 
-function formatPushDateTimeRange(booking = {}) {
-  const startDate = new Date(booking.startTime);
-  const endDate = new Date(booking.endTime);
-  const date = startDate.toLocaleDateString('de-DE', {
+function parseBookingDateTimeParts(value) {
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return {
+      year: value.getUTCFullYear(),
+      month: value.getUTCMonth() + 1,
+      day: value.getUTCDate(),
+      hour: value.getUTCHours(),
+      minute: value.getUTCMinutes(),
+      second: value.getUTCSeconds()
+    };
+  }
+
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    year: Number.parseInt(match[1], 10),
+    month: Number.parseInt(match[2], 10),
+    day: Number.parseInt(match[3], 10),
+    hour: Number.parseInt(match[4], 10),
+    minute: Number.parseInt(match[5], 10),
+    second: Number.parseInt(match[6] || '0', 10)
+  };
+}
+
+function getTimeZoneOffsetMs(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(date).reduce((memo, part) => {
+    if (part.type !== 'literal') {
+      memo[part.type] = Number.parseInt(part.value, 10);
+    }
+    return memo;
+  }, {});
+
+  const localTimeAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+
+  return localTimeAsUtc - date.getTime();
+}
+
+function bookingDateTimeToEpochMs(value) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return null;
+  }
+
+  const localTimeAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second
+  );
+  const firstOffset = getTimeZoneOffsetMs(new Date(localTimeAsUtc), BOOKING_TIME_ZONE);
+  const firstGuess = localTimeAsUtc - firstOffset;
+  const secondOffset = getTimeZoneOffsetMs(new Date(firstGuess), BOOKING_TIME_ZONE);
+
+  return localTimeAsUtc - secondOffset;
+}
+
+function formatBookingClockTime(value) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return '--:--';
+  }
+
+  return `${String(parts.hour).padStart(2, '0')}:${String(parts.minute).padStart(2, '0')}`;
+}
+
+function formatBookingShortDate(value) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return '';
+  }
+
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).toLocaleDateString('de-DE', {
     weekday: 'short',
     day: '2-digit',
-    month: '2-digit'
+    month: '2-digit',
+    timeZone: 'UTC'
   });
-  const startTime = startDate.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-  const endTime = endDate.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+}
+
+function formatPushDateTimeRange(booking = {}) {
+  const date = formatBookingShortDate(booking.startTime);
+  const startTime = formatBookingClockTime(booking.startTime);
+  const endTime = formatBookingClockTime(booking.endTime);
 
   return `${date}, ${startTime}-${endTime}`;
+}
+
+function getBookingStartMs(booking = {}) {
+  return bookingDateTimeToEpochMs(booking.startTime);
 }
 
 function getBoardTypeLabel(boardType) {
@@ -160,15 +264,16 @@ function formatBoardItems(booking = {}) {
   }).join(' / ');
 }
 
-function createBookingPushPayload(booking = {}) {
-  const name = booking.name || 'Neue Buchung';
-  const amount = formatCurrency(booking.price || 0);
+function createCheckinPushPayload(booking = {}) {
+  const name = booking.name || 'Ohne Namen';
+  const amount = formatPushCurrency(booking.price || 0);
   const timeRange = formatPushDateTimeRange(booking);
+  const paymentLabel = getPaymentLabel(booking.paymentMethod);
 
   return {
-    title: 'Neue Buchung',
-    body: `${name} · ${amount} · ${timeRange}`,
-    tag: `booking-${booking.id || Date.now()}`,
+    title: `Checkin: ${name}`,
+    body: `${amount} · ${paymentLabel}\n${timeRange}`,
+    tag: `checkin-${booking.id || Date.now()}`,
     url: '/admin.html',
     bookingId: booking.id
   };
@@ -247,12 +352,78 @@ async function sendPushPayload(payload) {
   };
 }
 
-async function notifyNewBooking(booking) {
-  await sendPushPayload(createBookingPushPayload(booking));
-}
-
 function getPaymentLabel(paymentMethod) {
   return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+}
+
+function isCheckinNotificationDue(booking = {}, nowMs = Date.now()) {
+  if (booking.checkinNotifiedAt) {
+    return false;
+  }
+
+  const startMs = getBookingStartMs(booking);
+  if (startMs === null) {
+    return false;
+  }
+
+  return startMs <= nowMs && startMs >= nowMs - CHECKIN_NOTIFICATION_GRACE_MS;
+}
+
+async function processDueCheckinNotifications() {
+  if (isProcessingCheckinNotifications) {
+    return;
+  }
+
+  isProcessingCheckinNotifications = true;
+
+  try {
+    const nowMs = Date.now();
+    const bookings = await db.readBookings();
+    const dueBookings = bookings
+      .filter(booking => isCheckinNotificationDue(booking, nowMs))
+      .sort((left, right) => getBookingStartMs(left) - getBookingStartMs(right));
+
+    for (const booking of dueBookings) {
+      const result = await sendPushPayload(createCheckinPushPayload(booking));
+
+      if (result.total === 0 || result.sent > 0 || result.removed > 0) {
+        await db.updateBooking(booking.id, {
+          checkinNotifiedAt: new Date().toISOString()
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error processing checkin push notifications:', error);
+  } finally {
+    isProcessingCheckinNotifications = false;
+  }
+}
+
+function startCheckinNotificationScheduler() {
+  if (process.env.NODE_ENV === 'test' || checkinNotificationInterval) {
+    return;
+  }
+
+  setTimeout(() => {
+    processDueCheckinNotifications().catch(error => {
+      console.error('Error starting checkin push notifications:', error);
+    });
+  }, 1000);
+
+  checkinNotificationInterval = setInterval(() => {
+    processDueCheckinNotifications().catch(error => {
+      console.error('Error running checkin push notifications:', error);
+    });
+  }, CHECKIN_NOTIFICATION_POLL_MS);
+}
+
+function stopCheckinNotificationScheduler() {
+  if (!checkinNotificationInterval) {
+    return;
+  }
+
+  clearInterval(checkinNotificationInterval);
+  checkinNotificationInterval = null;
 }
 
 function wrapPdfText(text, maxLength = 92) {
@@ -506,9 +677,6 @@ app.post('/api/bookings', async (req, res) => {
     
     // Save booking
     await db.saveBooking(booking);
-    notifyNewBooking(booking).catch(error => {
-      console.error('Error sending booking push notification:', error);
-    });
     
     res.json({
       success: true,
@@ -841,6 +1009,7 @@ app.post('/api/calculate-price', (req, res) => {
 
 async function startServer() {
   await initializeApp();
+  startCheckinNotificationScheduler();
 
   httpServer = app.listen(PORT, '0.0.0.0', () => {
     const os = require('os');
@@ -880,6 +1049,7 @@ if (require.main === module) {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
+  stopCheckinNotificationScheduler();
   if (httpServer) {
     await new Promise(resolve => httpServer.close(resolve));
   }
@@ -889,6 +1059,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
+  stopCheckinNotificationScheduler();
   if (httpServer) {
     await new Promise(resolve => httpServer.close(resolve));
   }

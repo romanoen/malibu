@@ -43,6 +43,7 @@ async function initDatabase() {
       await ensureBoardTypeColumn();
       await ensurePeoplePerBoardColumn();
       await ensureBoardItemsColumn();
+      await ensureCheckinNotifiedColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -146,6 +147,17 @@ async function ensureBoardItemsColumn() {
   }
 }
 
+async function ensureCheckinNotifiedColumn() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_notified_at TIMESTAMP');
+    console.log('✅ Checkin notification column verified');
+  } catch (error) {
+    console.error('⚠️  Could not add checkin_notified_at column:', error.message);
+  }
+}
+
 function isValidPushSubscription(subscription) {
   return subscription &&
     typeof subscription === 'object' &&
@@ -209,6 +221,7 @@ async function readBookings() {
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
         notes,
+        checkin_notified_at as "checkinNotifiedAt",
         created_at as "createdAt"
       FROM bookings
       ORDER BY created_at DESC
@@ -387,6 +400,10 @@ async function updateBooking(bookingId, updates) {
       setClause.push(`notes = $${paramIndex++}`);
       values.push(updates.notes);
     }
+    if (updates.checkinNotifiedAt !== undefined) {
+      setClause.push(`checkin_notified_at = $${paramIndex++}`);
+      values.push(updates.checkinNotifiedAt);
+    }
 
     if (setClause.length === 0) {
       return;
@@ -455,6 +472,7 @@ async function findBookingById(bookingId) {
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
         notes,
+        checkin_notified_at as "checkinNotifiedAt",
         created_at as "createdAt"
       FROM bookings
       WHERE id = $1
