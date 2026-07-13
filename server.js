@@ -57,6 +57,9 @@ async function initializeApp() {
     await db.initDatabase();
   } catch (error) {
     console.error('Failed to initialize database:', error);
+    if (process.env.DATABASE_URL || process.env.NODE_ENV === 'production') {
+      throw error;
+    }
   }
 }
 
@@ -715,6 +718,8 @@ app.get('/api/bookings', checkAdminSession, async (req, res) => {
 app.get('/api/admin/bookings', checkAdminSession, async (req, res) => {
   try {
     const bookings = await db.readBookings();
+    res.setHeader('X-Malibu-Storage', db.getStorageMode());
+    res.setHeader('X-Malibu-Booking-Count', String(bookings.length));
     res.json(bookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
@@ -1033,7 +1038,7 @@ async function startServer() {
     console.log(`\n📱 To access from your phone:`);
     console.log(`   1. Make sure your phone is on the same WiFi network`);
     console.log(`   2. Open browser and go to: http://${localIP}:${PORT}`);
-    console.log(`\n💾 Database: ${process.env.DATABASE_URL ? 'PostgreSQL' : 'JSON file (local)'}`);
+    console.log(`\n💾 Database: ${db.getStorageMode()}`);
   });
 
   return httpServer;

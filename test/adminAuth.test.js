@@ -103,6 +103,14 @@ test('admin login sets an HttpOnly session cookie and logout invalidates it', as
   assert.equal(sessionResponse.status, 200);
   assert.deepEqual(await sessionResponse.json(), { authenticated: true });
 
+  resetAdminAuthState();
+  const sessionAfterRestartResponse = await fetch(`${baseUrl}/api/admin/session`, {
+    headers: { Cookie: sessionCookie }
+  });
+
+  assert.equal(sessionAfterRestartResponse.status, 200);
+  assert.deepEqual(await sessionAfterRestartResponse.json(), { authenticated: true });
+
   const logoutResponse = await fetch(`${baseUrl}/api/admin/logout`, {
     method: 'POST',
     headers: { Cookie: sessionCookie }

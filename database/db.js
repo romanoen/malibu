@@ -60,6 +60,10 @@ async function initDatabase() {
   }
 }
 
+function getStorageMode() {
+  return usePostgreSQL ? 'PostgreSQL' : 'JSON file';
+}
+
 // Create database tables
 async function createTables() {
   if (!usePostgreSQL) return;
@@ -537,6 +541,7 @@ async function closeDatabase() {
 
 module.exports = {
   initDatabase,
+  getStorageMode,
   readBookings,
   saveBooking,
   updateBooking,

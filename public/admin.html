@@ -1461,12 +1461,10 @@
                 const bookings = Array.isArray(bookingsData) ? bookingsData : [];
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
-                const hadPreviousState = lastBookingId !== null;
-                const hasBookingChanges = hadPreviousState && (
+                const hasBookingChanges = !hasLoadedOnce ||
                     currentBookingCount !== lastBookingCount ||
-                    (newestBookingId && newestBookingId !== lastBookingId)
-                );
-                const hasLikelyNewBooking = hadPreviousState &&
+                    newestBookingId !== lastBookingId;
+                const hasLikelyNewBooking = hasLoadedOnce &&
                     currentBookingCount >= lastBookingCount &&
                     newestBookingId &&
                     newestBookingId !== lastBookingId;
@@ -1498,7 +1496,7 @@
                 });
 
                 const sortedDates = Object.keys(bookingsByDate).sort((a, b) => dateMap[b] - dateMap[a]);
-                const shouldSkipRender = !forceUpdate && hasLoadedOnce && !hasBookingChanges;
+                const shouldSkipRender = !forceUpdate && !hasBookingChanges;
                 if (shouldSkipRender) {
                     return;
                 }
@@ -1630,7 +1628,8 @@
                         return;
                     }
 
-                    const bookings = await readJson(response) || [];
+                    const bookingsData = await readJson(response) || [];
+                    const bookings = Array.isArray(bookingsData) ? bookingsData : [];
                     const currentCount = bookings.length;
                     const newestId = bookings.length > 0 ? bookings[0].id : null;
 
