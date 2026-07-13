@@ -314,11 +314,35 @@
             width: 100%;
         }
 
+        .chart-plot {
+            position: relative;
+            height: 220px;
+            width: 100%;
+        }
+
         .revenue-chart svg {
             display: block;
             width: 100%;
-            height: 220px;
+            height: 100%;
             overflow: visible;
+        }
+
+        .chart-y-labels {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .chart-y-label {
+            position: absolute;
+            left: 0;
+            width: 58px;
+            color: var(--admin-muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+            line-height: 1;
+            text-align: right;
+            transform: translateY(-50%);
         }
 
         .chart-axis,
@@ -351,9 +375,9 @@
 
         .chart-months {
             display: grid;
-            grid-template-columns: repeat(12, minmax(0, 1fr));
             gap: 2px;
             margin-top: 8px;
+            padding-left: 58px;
             color: var(--admin-muted);
             font-size: 0.72rem;
             font-weight: 800;
@@ -912,7 +936,7 @@
             </div>
             <div class="stat-card chart-card">
                 <h3>Umsatzentwicklung</h3>
-                <div id="revenueChart" class="revenue-chart" aria-label="Kumulierte Umsatzentwicklung der letzten 12 Monate als Liniendiagramm"></div>
+                <div id="revenueChart" class="revenue-chart" aria-label="Kumulierte Umsatzentwicklung seit der ersten Buchung als Liniendiagramm"></div>
             </div>
         </div>
 
@@ -1037,10 +1061,37 @@
             return new Date(date.getFullYear(), date.getMonth(), date.getDate());
         }
 
+        function formatChartAxisCurrency(amount) {
+            return `${Number.parseFloat(amount || 0).toLocaleString('de-DE', {
+                maximumFractionDigits: 0
+            })} €`;
+        }
+
         function getCumulativeDailyRevenueSeries(bookings = latestBookings) {
-            const now = new Date();
-            const rangeStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-            const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            const datedBookings = bookings
+                .map(booking => ({
+                    date: parseBookingDate(booking.startTime) || parseBookingDate(booking.createdAt),
+                    price: Number.parseFloat(booking.price || 0)
+                }))
+                .filter(item => item.date);
+
+            if (datedBookings.length === 0) {
+                return {
+                    rangeStart: null,
+                    rangeEnd: null,
+                    days: [],
+                    months: [],
+                    totalRevenue: 0
+                };
+            }
+
+            const bookingDays = datedBookings.map(item => getDayStart(item.date));
+            const firstBookingDay = new Date(Math.min(...bookingDays.map(date => date.getTime())));
+            const lastBookingDay = new Date(Math.max(...bookingDays.map(date => date.getTime())));
+            const today = getDayStart(new Date());
+            const rangeStart = firstBookingDay;
+            const rangeEndDay = new Date(Math.max(today.getTime(), lastBookingDay.getTime()));
+            const rangeEnd = new Date(rangeEndDay.getFullYear(), rangeEndDay.getMonth(), rangeEndDay.getDate(), 23, 59, 59, 999);
             const dayMs = 24 * 60 * 60 * 1000;
             const dayCount = Math.max(1, Math.floor((getDayStart(rangeEnd) - rangeStart) / dayMs) + 1);
             const dailyValues = Array.from({ length: dayCount }, (_, index) => ({
@@ -1049,15 +1100,14 @@
                 cumulativeRevenue: 0
             }));
 
-            bookings.forEach(booking => {
-                const bookingDate = parseBookingDate(booking.startTime) || parseBookingDate(booking.createdAt);
-                if (!bookingDate || bookingDate < rangeStart || bookingDate > rangeEnd) {
+            datedBookings.forEach(item => {
+                if (item.date < rangeStart || item.date > rangeEnd) {
                     return;
                 }
 
-                const dayIndex = Math.floor((getDayStart(bookingDate) - rangeStart) / dayMs);
+                const dayIndex = Math.floor((getDayStart(item.date) - rangeStart) / dayMs);
                 if (dayIndex >= 0 && dayIndex < dailyValues.length) {
-                    dailyValues[dayIndex].dailyRevenue += Number.parseFloat(booking.price || 0);
+                    dailyValues[dayIndex].dailyRevenue += Number.isFinite(item.price) ? item.price : 0;
                 }
             });
 
@@ -1067,13 +1117,20 @@
                 item.cumulativeRevenue = cumulativeRevenue;
             });
 
-            const months = Array.from({ length: 12 }, (_, index) => {
-                const date = addMonths(rangeStart, index);
-                return {
-                    date,
-                    label: date.toLocaleDateString('de-DE', { month: 'short' })
-                };
+            const months = [];
+            months.push({
+                date: rangeStart,
+                label: rangeStart.toLocaleDateString('de-DE', { month: 'short' })
             });
+
+            let monthCursor = new Date(rangeStart.getFullYear(), rangeStart.getMonth() + 1, 1);
+            while (monthCursor <= rangeEnd) {
+                months.push({
+                    date: monthCursor,
+                    label: monthCursor.toLocaleDateString('de-DE', { month: 'short' })
+                });
+                monthCursor = addMonths(monthCursor, 1);
+            }
 
             return {
                 rangeStart,
@@ -1098,20 +1155,23 @@
             const series = getCumulativeDailyRevenueSeries(bookings);
 
             if (series.totalRevenue <= 0) {
-                chart.innerHTML = '<div class="chart-empty">Keine Umsätze in den letzten 12 Monaten</div>';
+                chart.innerHTML = '<div class="chart-empty">Keine Umsätze vorhanden</div>';
                 return;
             }
 
             const maxValue = Math.max(...series.days.map(item => item.cumulativeRevenue), 1);
-            const minX = 28;
+            const yAxisStep = 1000;
+            const yAxisMax = Math.max(yAxisStep, Math.ceil(maxValue / yAxisStep) * yAxisStep);
+            const minX = 64;
             const maxX = 700;
             const minY = 18;
             const maxY = 188;
+            const svgHeight = 205;
             const firstDate = series.days[0].date;
             const lastDate = series.days[series.days.length - 1].date;
             const points = series.days.map(item => {
                 const x = getRevenueChartXForDate(item.date, firstDate, lastDate, minX, maxX);
-                const y = maxY - ((item.cumulativeRevenue / maxValue) * (maxY - minY));
+                const y = maxY - ((item.cumulativeRevenue / yAxisMax) * (maxY - minY));
                 return { ...item, x, y };
             });
             const linePoints = points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
@@ -1129,24 +1189,39 @@
                 ...month,
                 x: getRevenueChartXForDate(month.date, firstDate, lastDate, minX, maxX)
             }));
+            const yTicks = Array.from({ length: yAxisMax / yAxisStep }, (_, index) => {
+                const value = (index + 1) * yAxisStep;
+                return {
+                    value,
+                    y: maxY - ((value / yAxisMax) * (maxY - minY))
+                };
+            });
 
             chart.innerHTML = `
-                <svg viewBox="0 0 720 205" preserveAspectRatio="none" role="img" aria-label="Kumulierte Umsatzentwicklung der letzten 12 Monate">
-                    <line class="chart-grid" x1="${minX}" y1="${minY}" x2="${maxX}" y2="${minY}"></line>
-                    <line class="chart-grid" x1="${minX}" y1="${((minY + maxY) / 2).toFixed(2)}" x2="${maxX}" y2="${((minY + maxY) / 2).toFixed(2)}"></line>
-                    <line class="chart-axis" x1="${minX}" y1="${maxY}" x2="${maxX}" y2="${maxY}"></line>
-                    ${monthTicks.map(tick => `
-                        <line class="chart-grid" x1="${tick.x.toFixed(2)}" y1="${minY}" x2="${tick.x.toFixed(2)}" y2="${maxY}"></line>
-                    `).join('')}
-                    <polygon class="chart-area" points="${areaPoints}"></polygon>
-                    <polyline class="chart-line" points="${linePoints}"></polyline>
-                    ${visiblePoints.map(point => `
-                        <circle class="chart-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="4.2">
-                            <title>${escapeHtml(point.date.toLocaleDateString('de-DE'))}: ${escapeHtml(formatCurrency(point.cumulativeRevenue))}</title>
-                        </circle>
-                    `).join('')}
-                </svg>
-                <div class="chart-months" aria-hidden="true">
+                <div class="chart-plot">
+                    <svg viewBox="0 0 720 205" preserveAspectRatio="none" role="img" aria-label="Kumulierte Umsatzentwicklung seit der ersten Buchung">
+                        ${yTicks.map(tick => `
+                            <line class="chart-grid" x1="${minX}" y1="${tick.y.toFixed(2)}" x2="${maxX}" y2="${tick.y.toFixed(2)}"></line>
+                        `).join('')}
+                        <line class="chart-axis" x1="${minX}" y1="${maxY}" x2="${maxX}" y2="${maxY}"></line>
+                        ${monthTicks.map(tick => `
+                            <line class="chart-grid" x1="${tick.x.toFixed(2)}" y1="${minY}" x2="${tick.x.toFixed(2)}" y2="${maxY}"></line>
+                        `).join('')}
+                        <polygon class="chart-area" points="${areaPoints}"></polygon>
+                        <polyline class="chart-line" points="${linePoints}"></polyline>
+                        ${visiblePoints.map(point => `
+                            <circle class="chart-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="4.2">
+                                <title>${escapeHtml(point.date.toLocaleDateString('de-DE'))}: ${escapeHtml(formatCurrency(point.cumulativeRevenue))}</title>
+                            </circle>
+                        `).join('')}
+                    </svg>
+                    <div class="chart-y-labels" aria-hidden="true">
+                        ${yTicks.map(tick => `
+                            <span class="chart-y-label" style="top: ${((tick.y / svgHeight) * 100).toFixed(2)}%">${escapeHtml(formatChartAxisCurrency(tick.value))}</span>
+                        `).join('')}
+                    </div>
+                </div>
+                <div class="chart-months" style="grid-template-columns: repeat(${monthTicks.length}, minmax(0, 1fr));" aria-hidden="true">
                     ${monthTicks.map(tick => `<span>${escapeHtml(tick.label)}</span>`).join('')}
                 </div>
             `;
