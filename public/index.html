@@ -112,9 +112,19 @@
                 </section>
 
                 <div class="booking-action-bar">
-                    <div class="price-display" aria-live="polite">
-                        <span>Gesamt</span>
-                        <strong id="totalPrice">0,00 €</strong>
+                    <div class="booking-summary" aria-live="polite">
+                        <div class="summary-display price-display">
+                            <span>Gesamt</span>
+                            <strong id="totalPrice">0,00 €</strong>
+                        </div>
+                        <div class="summary-display">
+                            <span>Personen</span>
+                            <strong id="summaryPeople">1</strong>
+                        </div>
+                        <div class="summary-display">
+                            <span>Boards</span>
+                            <strong id="summaryBoards">1</strong>
+                        </div>
                     </div>
                     <button type="submit" id="submitBtn" class="submit-btn">
                         Reservieren

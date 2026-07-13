@@ -525,15 +525,19 @@ select {
 
 .booking-action-bar {
     display: grid;
-    grid-template-columns: minmax(116px, 0.42fr) 1fr;
     gap: 10px;
-    align-items: center;
     margin-top: 2px;
     padding-top: 12px;
     border-top: 1px solid var(--line);
 }
 
-.price-display {
+.booking-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.summary-display {
     min-height: 54px;
     display: grid;
     align-content: center;
@@ -544,18 +548,23 @@ select {
     background: #fbfdfe;
 }
 
-.price-display span {
+.summary-display span {
     color: var(--muted);
     font-size: 0.78rem;
     font-weight: 750;
 }
 
-.price-display strong {
+.summary-display strong {
     color: var(--ink);
     font-size: 1.18rem;
     line-height: 1.12;
     font-weight: 900;
     white-space: nowrap;
+}
+
+.price-display {
+    border-color: rgba(8, 127, 140, 0.26);
+    background: #f4fbfc;
 }
 
 .submit-btn,
@@ -815,14 +824,20 @@ footer {
 }
 
 @media (max-width: 360px) {
-    .booking-action-bar {
-        grid-template-columns: 1fr;
+    .booking-summary {
+        gap: 6px;
     }
 
-    .price-display {
-        min-height: 48px;
-        grid-template-columns: auto auto;
-        justify-content: space-between;
-        align-items: center;
+    .summary-display {
+        min-height: 50px;
+        padding: 8px 9px;
+    }
+
+    .summary-display span {
+        font-size: 0.72rem;
+    }
+
+    .summary-display strong {
+        font-size: 1rem;
     }
 }

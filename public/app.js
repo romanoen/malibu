@@ -5,6 +5,8 @@ const endTimeSelect = document.getElementById('endTime');
 const boardItemsContainer = document.getElementById('boardItems');
 const addBoardItemBtn = document.getElementById('addBoardItemBtn');
 const totalPriceDisplay = document.getElementById('totalPrice');
+const summaryPeopleDisplay = document.getElementById('summaryPeople');
+const summaryBoardsDisplay = document.getElementById('summaryBoards');
 const submitBtn = document.getElementById('submitBtn');
 const successMessage = document.getElementById('successMessage');
 const errorMessage = document.getElementById('errorMessage');
@@ -158,6 +160,24 @@ function getBoardItems() {
     });
 }
 
+function getBookingSummary(boardItems = getBoardItems()) {
+    return boardItems.reduce((summary, item) => {
+        const quantity = Number.parseInt(item.quantity, 10) || 0;
+        const peoplePerBoard = Number.parseInt(item.peoplePerBoard, 10) || 0;
+
+        return {
+            boards: summary.boards + quantity,
+            people: summary.people + (quantity * peoplePerBoard)
+        };
+    }, { boards: 0, people: 0 });
+}
+
+function updateBookingSummary(boardItems = getBoardItems()) {
+    const summary = getBookingSummary(boardItems);
+    summaryPeopleDisplay.textContent = String(summary.people);
+    summaryBoardsDisplay.textContent = String(summary.boards);
+}
+
 function getBoardItemsError(boardItems) {
     if (boardItems.length === 0) {
         return 'Bitte füge mindestens ein Board hinzu.';
@@ -292,6 +312,7 @@ function resetBookingUi() {
     paymentNote.classList.add('hidden');
     showBoardOccupancyHint();
     resetBoardItems();
+    updateBookingSummary();
     endTimeSelect.innerHTML = buildEndTimeOptions();
     customTimeField.classList.add('hidden');
     selectedFixedDurationMinutes = null;
@@ -306,6 +327,7 @@ today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
 bookingDateInput.min = today.toISOString().slice(0, 10);
 bookingDateInput.value = bookingDateInput.value || bookingDateInput.min;
 resetBoardItems();
+updateBookingSummary();
 
 startTimeSelect.addEventListener('change', () => {
     const previousEndTime = endTimeSelect.value;
@@ -385,6 +407,7 @@ async function calculatePrice() {
     const startTime = startTimeSelect.value;
     const endTime = endTimeSelect.value;
     const boardItems = getBoardItems();
+    updateBookingSummary(boardItems);
     const boardItemsError = getBoardItemsError(boardItems);
 
     if (boardItemsError) {
