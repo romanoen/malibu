@@ -256,6 +256,12 @@
             margin-bottom: 30px;
         }
 
+        @media (min-width: 980px) {
+            .dashboard {
+                grid-template-columns: minmax(220px, 0.8fr) minmax(480px, 1.8fr) minmax(220px, 0.8fr);
+            }
+        }
+
         .stat-card {
             background: rgba(255, 255, 255, 0.88);
             color: var(--admin-text);
@@ -289,30 +295,35 @@
         }
 
         .chart-card {
-            min-height: 210px;
+            min-height: 268px;
         }
 
         .revenue-chart {
             margin-top: 18px;
-            min-height: 122px;
+            min-height: 184px;
         }
 
         .revenue-chart svg {
             display: block;
             width: 100%;
-            height: 122px;
+            height: 184px;
             overflow: visible;
         }
 
-        .chart-axis {
+        .chart-axis,
+        .chart-grid {
             stroke: rgba(24, 35, 32, 0.14);
             stroke-width: 1;
+        }
+
+        .chart-grid {
+            stroke-dasharray: 3 6;
         }
 
         .chart-line {
             fill: none;
             stroke: var(--admin-accent);
-            stroke-width: 3;
+            stroke-width: 2.6;
             stroke-linecap: round;
             stroke-linejoin: round;
         }
@@ -327,8 +338,15 @@
             stroke-width: 2.5;
         }
 
+        .chart-label {
+            fill: var(--admin-muted);
+            font-size: 6px;
+            font-weight: 700;
+            text-anchor: middle;
+        }
+
         .chart-empty {
-            min-height: 122px;
+            min-height: 184px;
             display: grid;
             place-items: center;
             border-radius: var(--admin-radius-md);
@@ -336,13 +354,6 @@
             color: var(--admin-muted);
             font-weight: 700;
             text-align: center;
-        }
-
-        .chart-summary {
-            margin-top: 12px;
-            color: var(--admin-muted);
-            font-size: 0.95rem;
-            line-height: 1.45;
         }
 
         .period-selector {
@@ -877,8 +888,7 @@
             </div>
             <div class="stat-card chart-card">
                 <h3>Umsatzentwicklung</h3>
-                <div id="revenueChart" class="revenue-chart" aria-label="Umsatzentwicklung als Liniendiagramm"></div>
-                <div id="revenueChartSummary" class="chart-summary">Noch keine Daten geladen.</div>
+                <div id="revenueChart" class="revenue-chart" aria-label="Kumulierte Umsatzentwicklung der letzten 12 Monate als Liniendiagramm"></div>
             </div>
             <div class="stat-card">
                 <h3>Buchungen</h3>
@@ -990,101 +1000,103 @@
             return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
         }
 
-        function toDateKey(date) {
-            return [
-                date.getFullYear().toString().padStart(4, '0'),
-                (date.getMonth() + 1).toString().padStart(2, '0'),
-                date.getDate().toString().padStart(2, '0')
-            ].join('-');
+        function addDays(date, days) {
+            const nextDate = new Date(date);
+            nextDate.setDate(nextDate.getDate() + days);
+            return nextDate;
         }
 
-        function toMonthKey(date) {
-            return [
-                date.getFullYear().toString().padStart(4, '0'),
-                (date.getMonth() + 1).toString().padStart(2, '0')
-            ].join('-');
+        function addMonths(date, months) {
+            return new Date(date.getFullYear(), date.getMonth() + months, 1);
         }
 
-        function getChartPeriodLabel(period) {
-            const labels = {
-                week: 'den letzten 7 Tagen',
-                month: 'den letzten 30 Tagen',
-                year: 'den letzten 12 Monaten'
-            };
-            return labels[period] || 'dem ausgewählten Zeitraum';
+        function getStartOfWeek(date) {
+            const weekStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+            const dayOffset = (weekStart.getDay() + 6) % 7;
+            weekStart.setDate(weekStart.getDate() - dayOffset);
+            return weekStart;
         }
 
-        function getRevenueChartBuckets(period) {
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function getCumulativeWeeklyRevenueSeries(bookings = latestBookings) {
             const now = new Date();
-            if (period === 'year') {
-                return Array.from({ length: 12 }, (_, index) => {
-                    const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
-                    return {
-                        key: toMonthKey(date),
-                        label: date.toLocaleDateString('de-DE', { month: 'short' })
-                    };
-                });
-            }
-
-            const days = period === 'week' ? 7 : 30;
-            return Array.from({ length: days }, (_, index) => {
-                const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1 - index));
-                return {
-                    key: toDateKey(date),
-                    label: date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
-                };
-            });
-        }
-
-        function getRevenueChartKey(booking, period) {
-            const date = parseBookingDate(booking.startTime) || parseBookingDate(booking.createdAt);
-            if (!date) {
-                return null;
-            }
-
-            return period === 'year' ? toMonthKey(date) : toDateKey(date);
-        }
-
-        function renderRevenueChart(bookings = latestBookings, period = currentPeriod) {
-            const chart = document.getElementById('revenueChart');
-            const summary = document.getElementById('revenueChartSummary');
-            if (!chart || !summary) {
-                return;
-            }
-
-            const buckets = getRevenueChartBuckets(period);
-            const totals = new Map(buckets.map(bucket => [bucket.key, 0]));
+            const rangeStart = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+            const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+            const firstWeekStart = getStartOfWeek(rangeStart);
+            const weekMs = 7 * 24 * 60 * 60 * 1000;
+            const weekCount = Math.max(1, Math.ceil((rangeEnd - firstWeekStart) / weekMs) + 1);
+            const weeklyValues = Array.from({ length: weekCount }, (_, index) => ({
+                start: addDays(firstWeekStart, index * 7),
+                weeklyRevenue: 0,
+                cumulativeRevenue: 0
+            }));
 
             bookings.forEach(booking => {
-                const key = getRevenueChartKey(booking, period);
-                if (!totals.has(key)) {
+                const bookingDate = parseBookingDate(booking.startTime) || parseBookingDate(booking.createdAt);
+                if (!bookingDate || bookingDate < rangeStart || bookingDate > rangeEnd) {
                     return;
                 }
 
-                totals.set(key, totals.get(key) + Number.parseFloat(booking.price || 0));
+                const weekIndex = Math.floor((getStartOfWeek(bookingDate) - firstWeekStart) / weekMs);
+                if (weekIndex >= 0 && weekIndex < weeklyValues.length) {
+                    weeklyValues[weekIndex].weeklyRevenue += Number.parseFloat(booking.price || 0);
+                }
             });
 
-            const values = buckets.map(bucket => ({
-                ...bucket,
-                value: totals.get(bucket.key) || 0
-            }));
-            const total = values.reduce((sum, item) => sum + item.value, 0);
+            let cumulativeRevenue = 0;
+            weeklyValues.forEach(item => {
+                cumulativeRevenue += item.weeklyRevenue;
+                item.cumulativeRevenue = cumulativeRevenue;
+            });
 
-            if (total <= 0) {
-                chart.innerHTML = '<div class="chart-empty">Keine Umsätze im Zeitraum</div>';
-                summary.textContent = `Keine Umsätze in ${getChartPeriodLabel(period)}.`;
+            const months = Array.from({ length: 12 }, (_, index) => {
+                const date = addMonths(rangeStart, index);
+                return {
+                    date,
+                    label: date.toLocaleDateString('de-DE', { month: 'short' })
+                };
+            });
+
+            return {
+                rangeStart,
+                rangeEnd,
+                firstWeekStart,
+                weeks: weeklyValues,
+                months,
+                totalRevenue: cumulativeRevenue
+            };
+        }
+
+        function getRevenueChartXForDate(date, firstDate, lastDate, minX, maxX) {
+            const range = Math.max(lastDate - firstDate, 1);
+            return minX + (clamp((date - firstDate) / range, 0, 1) * (maxX - minX));
+        }
+
+        function renderRevenueChart(bookings = latestBookings) {
+            const chart = document.getElementById('revenueChart');
+            if (!chart) {
                 return;
             }
 
-            const maxValue = Math.max(...values.map(item => item.value), 1);
-            const minX = 8;
-            const maxX = 92;
-            const minY = 14;
-            const maxY = 96;
-            const xStep = values.length > 1 ? (maxX - minX) / (values.length - 1) : 0;
-            const points = values.map((item, index) => {
-                const x = minX + (xStep * index);
-                const y = maxY - ((item.value / maxValue) * (maxY - minY));
+            const series = getCumulativeWeeklyRevenueSeries(bookings);
+
+            if (series.totalRevenue <= 0) {
+                chart.innerHTML = '<div class="chart-empty">Keine Umsätze in den letzten 12 Monaten</div>';
+                return;
+            }
+
+            const maxValue = Math.max(...series.weeks.map(item => item.cumulativeRevenue), 1);
+            const minX = 7;
+            const maxX = 96;
+            const minY = 10;
+            const maxY = 92;
+            const lastWeekStart = series.weeks[series.weeks.length - 1].start;
+            const points = series.weeks.map(item => {
+                const x = getRevenueChartXForDate(item.start, series.firstWeekStart, lastWeekStart, minX, maxX);
+                const y = maxY - ((item.cumulativeRevenue / maxValue) * (maxY - minY));
                 return { ...item, x, y };
             });
             const linePoints = points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
@@ -1094,26 +1106,33 @@
                 `${points[points.length - 1].x.toFixed(2)},${maxY}`
             ].join(' ');
             const visiblePoints = points.filter((_, index) => (
-                points.length <= 12 ||
                 index === 0 ||
                 index === points.length - 1 ||
-                values[index].value > 0
+                points[index].weeklyRevenue > 0
             ));
+            const monthTicks = series.months.map(month => ({
+                ...month,
+                x: getRevenueChartXForDate(month.date, series.firstWeekStart, lastWeekStart, minX, maxX)
+            }));
 
             chart.innerHTML = `
-                <svg viewBox="0 0 100 118" role="img" aria-label="Umsatzentwicklung">
-                    <line class="chart-axis" x1="8" y1="96" x2="92" y2="96"></line>
+                <svg viewBox="0 0 100 118" role="img" aria-label="Kumulierte Umsatzentwicklung der letzten 12 Monate">
+                    <line class="chart-axis" x1="${minX}" y1="${maxY}" x2="${maxX}" y2="${maxY}"></line>
+                    ${monthTicks.map(tick => `
+                        <line class="chart-grid" x1="${tick.x.toFixed(2)}" y1="${minY}" x2="${tick.x.toFixed(2)}" y2="${maxY}"></line>
+                    `).join('')}
                     <polygon class="chart-area" points="${areaPoints}"></polygon>
                     <polyline class="chart-line" points="${linePoints}"></polyline>
                     ${visiblePoints.map(point => `
-                        <circle class="chart-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="2.6">
-                            <title>${escapeHtml(point.label)}: ${escapeHtml(formatCurrency(point.value))}</title>
+                        <circle class="chart-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="2.1">
+                            <title>${escapeHtml(point.start.toLocaleDateString('de-DE'))}: ${escapeHtml(formatCurrency(point.cumulativeRevenue))}</title>
                         </circle>
+                    `).join('')}
+                    ${monthTicks.map(tick => `
+                        <text class="chart-label" x="${tick.x.toFixed(2)}" y="112">${escapeHtml(tick.label)}</text>
                     `).join('')}
                 </svg>
             `;
-            const peak = values.reduce((highest, item) => item.value > highest.value ? item : highest, values[0]);
-            summary.textContent = `${formatCurrency(total)} in ${getChartPeriodLabel(period)}. Höchster Punkt: ${peak.label} mit ${formatCurrency(peak.value)}.`;
         }
 
         function closeAdminMenu() {
@@ -1649,7 +1668,7 @@
             lastBookingId = null;
             hasLoadedOnce = false;
             latestBookings = [];
-            renderRevenueChart([], currentPeriod);
+            renderRevenueChart([]);
             clearAdminFeedback();
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('adminDashboard').classList.add('hidden');
@@ -1769,7 +1788,7 @@
                     year: 'Dieses Jahr'
                 };
                 document.getElementById('periodLabel').textContent = periodLabels[period] || 'Gesamt';
-                renderRevenueChart(latestBookings, currentPeriod);
+                renderRevenueChart(latestBookings);
             } catch (error) {
                 console.error('Error loading statistics:', error);
             }
@@ -1785,7 +1804,7 @@
                 const bookingsData = await readJson(response) || [];
                 const bookings = Array.isArray(bookingsData) ? bookingsData : [];
                 latestBookings = bookings;
-                renderRevenueChart(latestBookings, currentPeriod);
+                renderRevenueChart(latestBookings);
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
                 const hasBookingChanges = !hasLoadedOnce ||
