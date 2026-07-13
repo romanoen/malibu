@@ -999,12 +999,26 @@
             });
         }
 
+        async function resetPushSubscription() {
+            const registration = await registerAdminServiceWorker();
+            const subscription = await registration.pushManager.getSubscription();
+
+            if (subscription) {
+                const endpoint = subscription.endpoint;
+                await subscription.unsubscribe();
+                await deleteStoredPushSubscription(endpoint).catch(() => {});
+            }
+
+            localStorage.removeItem(PUSH_PUBLIC_KEY_STORAGE_KEY);
+        }
+
         async function getCurrentPushSubscription(registration, publicKey) {
             let subscription = await registration.pushManager.getSubscription();
             const storedPublicKey = localStorage.getItem(PUSH_PUBLIC_KEY_STORAGE_KEY);
+            const hasMissingStoredKey = subscription && !storedPublicKey;
             const hasStoredKeyMismatch = storedPublicKey && storedPublicKey !== publicKey;
 
-            if (subscription && (hasStoredKeyMismatch || !subscriptionMatchesPublicKey(subscription, publicKey))) {
+            if (subscription && (hasMissingStoredKey || hasStoredKeyMismatch || !subscriptionMatchesPublicKey(subscription, publicKey))) {
                 const endpoint = subscription.endpoint;
                 await subscription.unsubscribe();
                 await deleteStoredPushSubscription(endpoint).catch(() => {});
@@ -1113,10 +1127,12 @@
                 const data = await readJson(response);
 
                 if (response.ok && data?.success) {
-                    const warning = data.temporaryKeys
-                        ? ' Achtung: In Production fehlen feste VAPID-Keys, nach Neustarts bitte Push neu aktivieren.'
-                        : '';
-                    showAdminFeedback(`Test-Push wurde an dein iPhone gesendet. Falls kein Banner erscheint, App schließen oder iPhone sperren und erneut testen.${warning}`, data.temporaryKeys ? 'info' : 'success');
+                    showTestPushSuccess(data);
+                    return;
+                }
+
+                if (shouldRepairPushSubscription(data)) {
+                    await repairPushSubscriptionAndRetryTest(button);
                     return;
                 }
 
@@ -1130,6 +1146,52 @@
                     button.textContent = originalText || 'Push testen';
                     button.dataset.pushMode = 'test';
                 }
+            }
+        }
+
+        function showTestPushSuccess(data) {
+            const warning = data?.temporaryKeys
+                ? ' Achtung: In Production fehlen feste VAPID-Keys, nach Neustarts bitte Push neu aktivieren.'
+                : '';
+            showAdminFeedback(`Test-Push wurde an dein iPhone gesendet. Falls kein Banner erscheint, App schließen oder iPhone sperren und erneut testen.${warning}`, data?.temporaryKeys ? 'info' : 'success');
+        }
+
+        function shouldRepairPushSubscription(data) {
+            return Boolean(data) && (
+                Number(data.removed || 0) > 0 ||
+                Number(data.failed || 0) > 0 ||
+                data.temporaryKeys === true
+            );
+        }
+
+        async function repairPushSubscriptionAndRetryTest(button) {
+            try {
+                if (button) {
+                    button.textContent = 'Verbindet neu...';
+                }
+
+                await resetPushSubscription();
+                await enablePushNotifications();
+
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Testet erneut...';
+                }
+
+                const retryResponse = await adminFetch('/api/admin/push-test', {
+                    method: 'POST'
+                });
+                const retryData = await readJson(retryResponse);
+
+                if (retryResponse.ok && retryData?.success) {
+                    showTestPushSuccess(retryData);
+                    return;
+                }
+
+                showAdminFeedback(retryData?.error || 'Push wurde neu verbunden, aber der Test konnte noch nicht zugestellt werden.', 'error');
+            } catch (error) {
+                console.error('Push repair error:', error);
+                showAdminFeedback('Push konnte nicht neu verbunden werden.', 'error');
             }
         }
 

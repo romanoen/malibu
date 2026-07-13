@@ -183,6 +183,10 @@ function createTestPushPayload() {
   };
 }
 
+function shouldRemovePushSubscription(error) {
+  return [400, 401, 403, 404, 410].includes(error?.statusCode);
+}
+
 async function sendPushPayload(payload) {
   if (process.env.NODE_ENV === 'test') {
     return {
@@ -213,7 +217,7 @@ async function sendPushPayload(payload) {
       });
       return 'sent';
     } catch (error) {
-      if (error.statusCode === 404 || error.statusCode === 410) {
+      if (shouldRemovePushSubscription(error)) {
         await db.deletePushSubscription(subscription.endpoint);
         return 'removed';
       }
