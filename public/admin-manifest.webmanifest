@@ -1,6 +1,7 @@
 {
   "name": "Malibu SUP Admin",
   "short_name": "Malibu Admin",
+  "id": "/admin.html",
   "start_url": "/admin.html",
   "scope": "/",
   "display": "standalone",

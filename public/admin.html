@@ -7,6 +7,9 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="manifest" href="/admin-manifest.webmanifest">
     <meta name="theme-color" content="#2f6b5f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Malibu Admin">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="stylesheet" href="styles.css">
     <style>
         :root {
@@ -708,7 +711,7 @@
                     <h1>Buchungen verwalten</h1>
                 </div>
                 <div class="topbar-actions">
-                    <button type="button" id="pushToggleButton" onclick="enablePushNotifications()" class="btn btn-secondary" disabled>
+                    <button type="button" id="pushToggleButton" onclick="handlePushButtonClick(this)" class="btn btn-secondary" disabled>
                         Push prüfen...
                     </button>
                     <button type="button" onclick="downloadRevenuePdf()" class="btn btn-secondary">
@@ -846,13 +849,63 @@
                 'Notification' in window;
         }
 
+        function isIosDevice() {
+            return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        }
+
+        function isStandaloneWebApp() {
+            return window.navigator.standalone === true ||
+                window.matchMedia('(display-mode: standalone)').matches;
+        }
+
+        function getPushUnavailableReason() {
+            if (supportsPushNotifications()) {
+                return null;
+            }
+
+            if (isIosDevice() && !isStandaloneWebApp()) {
+                return 'ios-browser';
+            }
+
+            if (isIosDevice()) {
+                return 'ios-unsupported';
+            }
+
+            return 'unsupported';
+        }
+
+        function showPushUnavailableFeedback(reason) {
+            if (reason === 'ios-browser') {
+                showAdminFeedback('Auf dem iPhone geht Push erst als Home-Bildschirm-App: In Safari teilen, "Zum Home-Bildschirm" wählen, dann Malibu Admin vom Home-Bildschirm öffnen.', 'info');
+                return;
+            }
+
+            if (reason === 'ios-unsupported') {
+                showAdminFeedback('Auf dem iPhone braucht Web Push iOS 16.4 oder neuer und die geöffnete Home-Bildschirm-App.', 'error');
+                return;
+            }
+
+            showAdminFeedback('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.', 'error');
+        }
+
         function setPushButtonState(label, options = {}) {
             const button = document.getElementById('pushToggleButton');
             if (!button) return;
 
             button.textContent = label;
             button.disabled = Boolean(options.disabled);
+            button.dataset.pushMode = options.mode || 'enable';
             button.classList.toggle('push-active', Boolean(options.active));
+        }
+
+        async function handlePushButtonClick(button) {
+            if (button?.dataset.pushMode === 'test') {
+                await sendTestPushNotification(button);
+                return;
+            }
+
+            await enablePushNotifications();
         }
 
         function urlBase64ToUint8Array(base64String) {
@@ -958,7 +1011,13 @@
         }
 
         async function initializePushControls() {
-            if (!supportsPushNotifications()) {
+            const unavailableReason = getPushUnavailableReason();
+            if (unavailableReason === 'ios-browser') {
+                setPushButtonState('iPhone einrichten');
+                return;
+            }
+
+            if (unavailableReason) {
                 setPushButtonState('Push nicht verfügbar', { disabled: true });
                 return;
             }
@@ -977,7 +1036,7 @@
 
                 if (subscription) {
                     await savePushSubscription(subscription);
-                    setPushButtonState('Push aktiv', { active: true });
+                    setPushButtonState('Push testen', { active: true, mode: 'test' });
                     return;
                 }
 
@@ -989,8 +1048,9 @@
         }
 
         async function enablePushNotifications() {
-            if (!supportsPushNotifications()) {
-                showAdminFeedback('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.', 'error');
+            const unavailableReason = getPushUnavailableReason();
+            if (unavailableReason) {
+                showPushUnavailableFeedback(unavailableReason);
                 return;
             }
 
@@ -1022,13 +1082,48 @@
                 }
 
                 await savePushSubscription(subscription);
-                setPushButtonState('Push aktiv', { active: true });
-                showAdminFeedback('Push-Benachrichtigungen sind für dieses Gerät aktiv.', 'success');
+                setPushButtonState('Push testen', { active: true, mode: 'test' });
+                showAdminFeedback('Push-Benachrichtigungen sind für dieses Gerät aktiv. Du kannst jetzt mit "Push testen" eine Testnachricht senden.', 'success');
             } catch (error) {
                 console.error('Push activation error:', error);
                 pushPublicKeyPromise = null;
                 setPushButtonState('Push aktivieren');
                 showAdminFeedback(error.message || 'Push konnte nicht aktiviert werden.', 'error');
+            }
+        }
+
+        async function sendTestPushNotification(button) {
+            const originalText = button?.textContent;
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Sendet...';
+            }
+
+            try {
+                const response = await adminFetch('/api/admin/push-test', {
+                    method: 'POST'
+                });
+                const data = await readJson(response);
+
+                if (response.ok && data?.success) {
+                    const warning = data.temporaryKeys
+                        ? ' Achtung: In Production fehlen feste VAPID-Keys, nach Neustarts bitte Push neu aktivieren.'
+                        : '';
+                    showAdminFeedback(`Test-Push wurde gesendet.${warning}`, data.temporaryKeys ? 'info' : 'success');
+                    return;
+                }
+
+                showAdminFeedback(data?.error || 'Test-Push konnte nicht gesendet werden.', 'error');
+            } catch (error) {
+                console.error('Test push error:', error);
+                showAdminFeedback('Test-Push konnte nicht gesendet werden.', 'error');
+            } finally {
+                if (button && button.isConnected) {
+                    button.disabled = false;
+                    button.textContent = originalText || 'Push testen';
+                    button.dataset.pushMode = 'test';
+                }
             }
         }
 

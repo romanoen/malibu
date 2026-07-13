@@ -176,25 +176,47 @@ function createBookingPushPayload(booking = {}) {
   };
 }
 
-async function notifyNewBooking(booking) {
+function createTestPushPayload() {
+  return {
+    title: 'Malibu SUP Test',
+    body: 'Push-Benachrichtigung funktioniert.',
+    tag: `push-test-${Date.now()}`,
+    url: '/admin.html',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg'
+  };
+}
+
+async function sendPushPayload(payload) {
   if (process.env.NODE_ENV === 'test') {
-    return;
+    return {
+      total: 0,
+      sent: 0,
+      removed: 0,
+      failed: 0
+    };
   }
 
   const subscriptions = await db.readPushSubscriptions();
 
   if (subscriptions.length === 0) {
-    return;
+    return {
+      total: 0,
+      sent: 0,
+      removed: 0,
+      failed: 0
+    };
   }
 
-  const payload = JSON.stringify(createBookingPushPayload(booking));
+  const message = JSON.stringify(payload);
   const results = await Promise.allSettled(subscriptions.map(async subscription => {
     try {
-      await webpush.sendNotification(subscription, payload);
+      await webpush.sendNotification(subscription, message);
+      return 'sent';
     } catch (error) {
       if (error.statusCode === 404 || error.statusCode === 410) {
         await db.deletePushSubscription(subscription.endpoint);
-        return;
+        return 'removed';
       }
 
       throw error;
@@ -204,8 +226,26 @@ async function notifyNewBooking(booking) {
   const failedResults = results.filter(result => result.status === 'rejected');
   if (failedResults.length > 0) {
     console.error(`Push notification failed for ${failedResults.length} subscription(s)`);
-    failedResults.forEach(result => console.error(result.reason?.message || result.reason));
+    failedResults.forEach(result => {
+      const reason = result.reason;
+      console.error({
+        message: reason?.message || String(reason),
+        statusCode: reason?.statusCode,
+        body: reason?.body
+      });
+    });
   }
+
+  return {
+    total: subscriptions.length,
+    sent: results.filter(result => result.status === 'fulfilled' && result.value === 'sent').length,
+    removed: results.filter(result => result.status === 'fulfilled' && result.value === 'removed').length,
+    failed: failedResults.length
+  };
+}
+
+async function notifyNewBooking(booking) {
+  await sendPushPayload(createBookingPushPayload(booking));
 }
 
 function getPaymentLabel(paymentMethod) {
@@ -546,6 +586,40 @@ app.delete('/api/admin/push-subscriptions', checkAdminSession, async (req, res) 
   } catch (error) {
     console.error('Error deleting push subscription:', error);
     res.status(500).json({ error: 'Push-Subscription konnte nicht entfernt werden' });
+  }
+});
+
+app.post('/api/admin/push-test', checkAdminSession, async (req, res) => {
+  try {
+    const result = await sendPushPayload(createTestPushPayload());
+
+    if (result.total === 0) {
+      return res.status(400).json({
+        error: 'Kein Gerät für Push-Benachrichtigungen registriert',
+        ...result,
+        temporaryKeys: !configuredVapidKeys
+      });
+    }
+
+    if (result.sent === 0) {
+      return res.status(502).json({
+        error: 'Test-Push konnte nicht zugestellt werden',
+        ...result,
+        temporaryKeys: !configuredVapidKeys
+      });
+    }
+
+    res.json({
+      success: true,
+      ...result,
+      temporaryKeys: !configuredVapidKeys
+    });
+  } catch (error) {
+    console.error('Error sending test push notification:', error);
+    res.status(500).json({
+      error: 'Test-Push konnte nicht gesendet werden',
+      temporaryKeys: !configuredVapidKeys
+    });
   }
 });
 
