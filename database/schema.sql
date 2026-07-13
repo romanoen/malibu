@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_start_time ON bookings(start_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
-CREATE INDEX IF NOT EXISTS idx_bookings_checkin_notified_at ON bookings(checkin_notified_at);
 
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     endpoint TEXT PRIMARY KEY,

@@ -156,6 +156,7 @@ async function ensureCheckinNotifiedColumn() {
 
   try {
     await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS checkin_notified_at TIMESTAMP');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_bookings_checkin_notified_at ON bookings(checkin_notified_at)');
     console.log('✅ Checkin notification column verified');
   } catch (error) {
     console.error('⚠️  Could not add checkin_notified_at column:', error.message);
