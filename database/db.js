@@ -14,6 +14,12 @@ function getBookingsFile() {
     : path.join(__dirname, '..', 'bookings.json');
 }
 
+function getPushSubscriptionsFile() {
+  return process.env.PUSH_SUBSCRIPTIONS_FILE
+    ? path.resolve(process.env.PUSH_SUBSCRIPTIONS_FILE)
+    : path.join(__dirname, '..', 'push-subscriptions.json');
+}
+
 // Initialize database connection
 async function initDatabase() {
   if (process.env.DATABASE_URL) {
@@ -36,6 +42,7 @@ async function initDatabase() {
       await ensureNotesColumn();
       await ensureBoardTypeColumn();
       await ensurePeoplePerBoardColumn();
+      await ensureBoardItemsColumn();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -117,6 +124,65 @@ async function ensurePeoplePerBoardColumn() {
   }
 }
 
+async function ensureBoardItemsColumn() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS board_items JSONB NOT NULL DEFAULT '[]'::jsonb");
+    await pool.query(`
+      UPDATE bookings
+      SET board_items = jsonb_build_array(
+        jsonb_build_object(
+          'boardType', board_type,
+          'quantity', number_of_boards,
+          'peoplePerBoard', people_per_board
+        )
+      )
+      WHERE board_items = '[]'::jsonb
+    `);
+    console.log('✅ Board items column verified');
+  } catch (error) {
+    console.error('⚠️  Could not add board_items column:', error.message);
+  }
+}
+
+function isValidPushSubscription(subscription) {
+  return subscription &&
+    typeof subscription === 'object' &&
+    typeof subscription.endpoint === 'string' &&
+    subscription.endpoint.length > 0 &&
+    subscription.keys &&
+    typeof subscription.keys.p256dh === 'string' &&
+    typeof subscription.keys.auth === 'string';
+}
+
+function buildLegacyBoardItems(booking = {}) {
+  return [{
+    boardType: booking.boardType || booking.board_type || 'allround',
+    quantity: booking.numberOfBoards || booking.number_of_boards || 1,
+    peoplePerBoard: booking.peoplePerBoard || booking.people_per_board || (booking.boardType === 'partner' || booking.board_type === 'partner' ? 2 : 1)
+  }];
+}
+
+function normalizeStoredBoardItems(value, booking = {}) {
+  if (Array.isArray(value) && value.length > 0) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsedValue = JSON.parse(value);
+      if (Array.isArray(parsedValue) && parsedValue.length > 0) {
+        return parsedValue;
+      }
+    } catch (error) {
+      return buildLegacyBoardItems(booking);
+    }
+  }
+
+  return buildLegacyBoardItems(booking);
+}
+
 // Read bookings (works with both PostgreSQL and JSON)
 async function readBookings() {
   if (usePostgreSQL) {
@@ -128,6 +194,7 @@ async function readBookings() {
         board_type as "boardType",
         number_of_boards as "numberOfBoards",
         people_per_board as "peoplePerBoard",
+        board_items as "boardItems",
         start_time as "startTime",
         end_time as "endTime",
         duration_hours as "durationHours",
@@ -149,6 +216,7 @@ async function readBookings() {
     
     return result.rows.map(row => ({
       ...row,
+      boardItems: normalizeStoredBoardItems(row.boardItems, row),
       duration: {
         hours: row.durationHours,
         minutes: row.durationMinutes
@@ -159,7 +227,10 @@ async function readBookings() {
     const BOOKINGS_FILE = getBookingsFile();
     try {
       const data = await fs.readFile(BOOKINGS_FILE, 'utf8');
-      return JSON.parse(data).sort((a, b) => {
+      return JSON.parse(data).map(booking => ({
+        ...booking,
+        boardItems: normalizeStoredBoardItems(booking.boardItems, booking)
+      })).sort((a, b) => {
         const left = new Date(a.createdAt || 0).getTime();
         const right = new Date(b.createdAt || 0).getTime();
         return right - left;
@@ -170,16 +241,91 @@ async function readBookings() {
   }
 }
 
+async function readPushSubscriptions() {
+  if (usePostgreSQL) {
+    const result = await pool.query(`
+      SELECT subscription
+      FROM push_subscriptions
+      ORDER BY created_at DESC
+    `);
+
+    return result.rows
+      .map(row => row.subscription)
+      .filter(isValidPushSubscription);
+  }
+
+  const PUSH_SUBSCRIPTIONS_FILE = getPushSubscriptionsFile();
+  try {
+    const data = await fs.readFile(PUSH_SUBSCRIPTIONS_FILE, 'utf8');
+    const subscriptions = JSON.parse(data);
+    return Array.isArray(subscriptions)
+      ? subscriptions.filter(isValidPushSubscription)
+      : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+async function savePushSubscription(subscription) {
+  if (!isValidPushSubscription(subscription)) {
+    throw new Error('Invalid push subscription');
+  }
+
+  if (usePostgreSQL) {
+    await pool.query(`
+      INSERT INTO push_subscriptions (endpoint, subscription, updated_at)
+      VALUES ($1, $2, CURRENT_TIMESTAMP)
+      ON CONFLICT (endpoint)
+      DO UPDATE SET subscription = EXCLUDED.subscription, updated_at = CURRENT_TIMESTAMP
+    `, [subscription.endpoint, JSON.stringify(subscription)]);
+    return subscription;
+  }
+
+  const PUSH_SUBSCRIPTIONS_FILE = getPushSubscriptionsFile();
+  const subscriptions = await readPushSubscriptions();
+  const nextSubscriptions = [
+    subscription,
+    ...subscriptions.filter(item => item.endpoint !== subscription.endpoint)
+  ];
+
+  await fs.mkdir(path.dirname(PUSH_SUBSCRIPTIONS_FILE), { recursive: true });
+  await fs.writeFile(PUSH_SUBSCRIPTIONS_FILE, JSON.stringify(nextSubscriptions, null, 2));
+  return subscription;
+}
+
+async function deletePushSubscription(endpoint) {
+  if (typeof endpoint !== 'string' || endpoint.length === 0) {
+    return false;
+  }
+
+  if (usePostgreSQL) {
+    const result = await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+    return result.rowCount > 0;
+  }
+
+  const PUSH_SUBSCRIPTIONS_FILE = getPushSubscriptionsFile();
+  const subscriptions = await readPushSubscriptions();
+  const nextSubscriptions = subscriptions.filter(item => item.endpoint !== endpoint);
+
+  if (nextSubscriptions.length === subscriptions.length) {
+    return false;
+  }
+
+  await fs.mkdir(path.dirname(PUSH_SUBSCRIPTIONS_FILE), { recursive: true });
+  await fs.writeFile(PUSH_SUBSCRIPTIONS_FILE, JSON.stringify(nextSubscriptions, null, 2));
+  return true;
+}
+
 // Save a booking (works with both PostgreSQL and JSON)
 async function saveBooking(booking) {
   if (usePostgreSQL) {
     await pool.query(`
       INSERT INTO bookings (
-        id, name, phone, board_type, number_of_boards, people_per_board, start_time, end_time,
+        id, name, phone, board_type, number_of_boards, people_per_board, board_items, start_time, end_time,
         duration_hours, duration_minutes, price, price_per_board,
         is_day_rate, payment_method, status, paypal_link, paypal_amount,
         payment_verified, verified_at, notes, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
     `, [
       booking.id,
       booking.name,
@@ -187,6 +333,7 @@ async function saveBooking(booking) {
       booking.boardType || 'allround',
       booking.numberOfBoards,
       booking.peoplePerBoard || 1,
+      JSON.stringify(booking.boardItems || buildLegacyBoardItems(booking)),
       booking.startTime,
       booking.endTime,
       booking.duration.hours,
@@ -293,6 +440,7 @@ async function findBookingById(bookingId) {
         board_type as "boardType",
         number_of_boards as "numberOfBoards",
         people_per_board as "peoplePerBoard",
+        board_items as "boardItems",
         start_time as "startTime",
         end_time as "endTime",
         duration_hours as "durationHours",
@@ -317,6 +465,7 @@ async function findBookingById(bookingId) {
     const row = result.rows[0];
     return {
       ...row,
+      boardItems: normalizeStoredBoardItems(row.boardItems, row),
       duration: {
         hours: row.durationHours,
         minutes: row.durationMinutes
@@ -344,5 +493,8 @@ module.exports = {
   updateBooking,
   deleteBooking,
   findBookingById,
+  readPushSubscriptions,
+  savePushSubscription,
+  deletePushSubscription,
   closeDatabase
 };

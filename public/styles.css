@@ -235,6 +235,68 @@ select {
     background: #e2f3f5;
 }
 
+.board-items {
+    display: grid;
+    gap: 10px;
+}
+
+.board-item {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) 42px;
+    gap: 9px;
+    align-items: end;
+    padding: 10px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: #fbfdfe;
+}
+
+.board-item-with-people {
+    grid-template-columns: minmax(180px, 1fr) minmax(110px, 0.35fr) 42px;
+}
+
+.board-item label,
+.board-item .field-label {
+    font-size: 0.82rem;
+}
+
+.board-item select,
+.board-item input[type="number"] {
+    min-height: 44px;
+}
+
+.remove-board-btn,
+.add-board-btn {
+    min-height: 44px;
+    border: 1.5px solid var(--line);
+    border-radius: var(--radius);
+    background: #fbfdfe;
+    color: var(--water-dark);
+    font-weight: 850;
+    cursor: pointer;
+}
+
+.remove-board-btn {
+    font-size: 1.3rem;
+}
+
+.remove-board-btn:disabled {
+    cursor: not-allowed;
+    color: #a7b5bc;
+    background: #f3f6f7;
+}
+
+.add-board-btn {
+    width: 100%;
+    color: var(--ink);
+}
+
+.add-board-btn:active,
+.remove-board-btn:active:not(:disabled) {
+    border-color: var(--water);
+    background: #e8f7f8;
+}
+
 .compact-group {
     gap: 9px;
 }
@@ -684,6 +746,14 @@ footer {
 
     .duration-options {
         gap: 7px;
+    }
+
+    .board-item {
+        grid-template-columns: 1fr;
+    }
+
+    .remove-board-btn {
+        width: 100%;
     }
 
     .duration-btn,

@@ -53,6 +53,11 @@ async function migrate() {
           boardType: booking.boardType || booking.board_type || 'allround',
           numberOfBoards: booking.numberOfBoards || booking.number_of_boards,
           peoplePerBoard: booking.peoplePerBoard || booking.people_per_board || (booking.boardType === 'partner' || booking.board_type === 'partner' ? 2 : 1),
+          boardItems: booking.boardItems || booking.board_items || [{
+            boardType: booking.boardType || booking.board_type || 'allround',
+            quantity: booking.numberOfBoards || booking.number_of_boards,
+            peoplePerBoard: booking.peoplePerBoard || booking.people_per_board || (booking.boardType === 'partner' || booking.board_type === 'partner' ? 2 : 1)
+          }],
           startTime: booking.startTime,
           endTime: booking.endTime,
           duration: booking.duration || { hours: 0, minutes: 0 },

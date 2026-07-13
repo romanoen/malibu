@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Buchungsverwaltung</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="manifest" href="/admin-manifest.webmanifest">
+    <meta name="theme-color" content="#2f6b5f">
     <link rel="stylesheet" href="styles.css">
     <style>
         :root {
@@ -165,6 +167,23 @@
             align-self: flex-end;
         }
 
+        .topbar-actions {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .download-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1em;
+            font-size: 1.05em;
+            line-height: 1;
+        }
+
         .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -239,6 +258,10 @@
             padding: 10px 16px;
             font-size: 0.88rem;
             line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
         .btn:hover,
@@ -266,6 +289,12 @@
 
         .btn-secondary:hover {
             background: rgba(24, 35, 32, 0.10);
+        }
+
+        .btn.push-active {
+            background: var(--admin-success-soft);
+            color: var(--admin-success);
+            border-color: rgba(44, 105, 90, 0.20);
         }
 
         .btn-delete {
@@ -363,6 +392,7 @@
 
         .day-header .count,
         .day-header .pending-badge,
+        .day-header .day-revenue,
         .day-toggle {
             display: inline-flex;
             align-items: center;
@@ -380,6 +410,11 @@
         .day-header .pending-badge {
             background: var(--admin-warning-soft);
             color: var(--admin-warning);
+        }
+
+        .day-header .day-revenue {
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--admin-text);
         }
 
         .day-toggle {
@@ -455,12 +490,15 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
+            max-width: 100%;
             padding: 8px 12px;
             border-radius: 999px;
             background: rgba(24, 35, 32, 0.06);
             color: var(--admin-text);
             font-size: 0.88rem;
+            line-height: 1.25;
             font-weight: 600;
+            white-space: normal;
         }
 
         .meta-pill-verified {
@@ -669,7 +707,16 @@
                     <p class="section-kicker">Malibu SUP</p>
                     <h1>Buchungen verwalten</h1>
                 </div>
-                <button onclick="logout()" class="btn btn-secondary">Abmelden</button>
+                <div class="topbar-actions">
+                    <button type="button" id="pushToggleButton" onclick="enablePushNotifications()" class="btn btn-secondary" disabled>
+                        Push prüfen...
+                    </button>
+                    <button type="button" onclick="downloadRevenuePdf()" class="btn btn-secondary">
+                        <span class="download-icon" aria-hidden="true">&#8595;</span>
+                        Umsatzaufstellung
+                    </button>
+                    <button onclick="logout()" class="btn btn-secondary">Abmelden</button>
+                </div>
             </div>
 
         <div id="adminFeedback" class="feedback-banner hidden"></div>
@@ -705,6 +752,8 @@
         let isPolling = false;
         let hasLoadedOnce = false;
         let feedbackTimeoutId = null;
+        let pushRegistration = null;
+        let pushPublicKeyPromise = null;
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -791,6 +840,198 @@
             return response;
         }
 
+        function supportsPushNotifications() {
+            return 'serviceWorker' in navigator &&
+                'PushManager' in window &&
+                'Notification' in window;
+        }
+
+        function setPushButtonState(label, options = {}) {
+            const button = document.getElementById('pushToggleButton');
+            if (!button) return;
+
+            button.textContent = label;
+            button.disabled = Boolean(options.disabled);
+            button.classList.toggle('push-active', Boolean(options.active));
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, '+')
+                .replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+
+            for (let index = 0; index < rawData.length; index += 1) {
+                outputArray[index] = rawData.charCodeAt(index);
+            }
+
+            return outputArray;
+        }
+
+        function arrayBufferToBase64Url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+
+            bytes.forEach(byte => {
+                binary += String.fromCharCode(byte);
+            });
+
+            return window.btoa(binary)
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/g, '');
+        }
+
+        function subscriptionMatchesPublicKey(subscription, publicKey) {
+            const applicationServerKey = subscription?.options?.applicationServerKey;
+            if (!applicationServerKey) {
+                return true;
+            }
+
+            return arrayBufferToBase64Url(applicationServerKey) === publicKey;
+        }
+
+        async function getPushPublicKey() {
+            if (!pushPublicKeyPromise) {
+                pushPublicKeyPromise = adminFetch('/api/admin/push-public-key')
+                    .then(async response => {
+                        const data = await readJson(response);
+                        if (!response.ok || !data?.publicKey) {
+                            throw new Error(data?.error || 'Push-Key konnte nicht geladen werden');
+                        }
+
+                        return data.publicKey;
+                    });
+            }
+
+            return pushPublicKeyPromise;
+        }
+
+        async function registerAdminServiceWorker() {
+            if (pushRegistration) {
+                return pushRegistration;
+            }
+
+            pushRegistration = await navigator.serviceWorker.register('/admin-sw.js');
+            await navigator.serviceWorker.ready;
+            return pushRegistration;
+        }
+
+        async function savePushSubscription(subscription) {
+            const response = await adminFetch('/api/admin/push-subscriptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    subscription: typeof subscription.toJSON === 'function'
+                        ? subscription.toJSON()
+                        : subscription
+                })
+            });
+            const data = await readJson(response);
+
+            if (!response.ok || data?.success !== true) {
+                throw new Error(data?.error || 'Push konnte nicht aktiviert werden');
+            }
+        }
+
+        async function deleteStoredPushSubscription(endpoint) {
+            await adminFetch('/api/admin/push-subscriptions', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ endpoint })
+            });
+        }
+
+        async function getCurrentPushSubscription(registration, publicKey) {
+            let subscription = await registration.pushManager.getSubscription();
+
+            if (subscription && !subscriptionMatchesPublicKey(subscription, publicKey)) {
+                const endpoint = subscription.endpoint;
+                await subscription.unsubscribe();
+                await deleteStoredPushSubscription(endpoint).catch(() => {});
+                subscription = null;
+            }
+
+            return subscription;
+        }
+
+        async function initializePushControls() {
+            if (!supportsPushNotifications()) {
+                setPushButtonState('Push nicht verfügbar', { disabled: true });
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                setPushButtonState('Push blockiert', { disabled: true });
+                return;
+            }
+
+            setPushButtonState('Push prüfen...', { disabled: true });
+
+            try {
+                const publicKey = await getPushPublicKey();
+                const registration = await registerAdminServiceWorker();
+                const subscription = await getCurrentPushSubscription(registration, publicKey);
+
+                if (subscription) {
+                    await savePushSubscription(subscription);
+                    setPushButtonState('Push aktiv', { active: true });
+                    return;
+                }
+
+                setPushButtonState('Push aktivieren');
+            } catch (error) {
+                console.error('Push initialization error:', error);
+                setPushButtonState('Push aktivieren');
+            }
+        }
+
+        async function enablePushNotifications() {
+            if (!supportsPushNotifications()) {
+                showAdminFeedback('Push-Benachrichtigungen werden von diesem Browser nicht unterstützt.', 'error');
+                return;
+            }
+
+            if (Notification.permission === 'denied') {
+                setPushButtonState('Push blockiert', { disabled: true });
+                showAdminFeedback('Push ist im Browser blockiert. Bitte in den Website-Einstellungen erlauben.', 'error');
+                return;
+            }
+
+            setPushButtonState('Push aktiviert...', { disabled: true });
+
+            try {
+                const publicKey = await getPushPublicKey();
+                const registration = await registerAdminServiceWorker();
+                let subscription = await getCurrentPushSubscription(registration, publicKey);
+
+                if (!subscription) {
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        setPushButtonState('Push aktivieren');
+                        showAdminFeedback('Push-Benachrichtigungen wurden nicht erlaubt.', 'error');
+                        return;
+                    }
+
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey)
+                    });
+                }
+
+                await savePushSubscription(subscription);
+                setPushButtonState('Push aktiv', { active: true });
+                showAdminFeedback('Push-Benachrichtigungen sind für dieses Gerät aktiv.', 'success');
+            } catch (error) {
+                console.error('Push activation error:', error);
+                pushPublicKeyPromise = null;
+                setPushButtonState('Push aktivieren');
+                showAdminFeedback(error.message || 'Push konnte nicht aktiviert werden.', 'error');
+            }
+        }
+
         checkSession();
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -859,6 +1100,7 @@
             loadStatistics(currentPeriod);
             loadBookings();
             startPolling();
+            initializePushControls();
         }
 
         function restorePeriodSelection() {
@@ -904,6 +1146,30 @@
                 console.error('Logout error:', error);
             } finally {
                 showLoggedOutState();
+            }
+        }
+
+        async function downloadRevenuePdf() {
+            try {
+                const response = await adminFetch('/api/admin/revenue-pdf');
+                if (!response.ok) {
+                    const data = await readJson(response);
+                    throw new Error(data?.error || 'Download fehlgeschlagen');
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const disposition = response.headers.get('content-disposition') || '';
+                const filenameMatch = disposition.match(/filename="([^"]+)"/);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = filenameMatch?.[1] || 'malibu-umsatzaufstellung.pdf';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                showAdminFeedback(error.message || 'Download fehlgeschlagen.', 'error');
             }
         }
 
@@ -1045,6 +1311,13 @@
                     const pendingBadge = pendingCount > 0
                         ? `<span class="pending-badge">${pendingCount} offen</span>`
                         : '';
+                    const dayRevenue = dayBookings.reduce((sum, booking) => {
+                        return sum + Number.parseFloat(booking.price || 0);
+                    }, 0);
+                    const dayRevenueText = `Tagesumsatz: ${dayRevenue.toLocaleString('de-DE', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    })}€`;
                     const toggleText = isExpanded ? 'Weniger' : 'Öffnen';
 
                     html += `
@@ -1055,6 +1328,7 @@
                                 </div>
                                 <div class="day-meta">
                                     <span class="count">${countText}</span>
+                                    <span class="day-revenue">${dayRevenueText}</span>
                                     ${pendingBadge}
                                     <span class="day-toggle">${toggleText}</span>
                                 </div>
@@ -1165,6 +1439,28 @@
             return labels[boardType] || 'Board';
         }
 
+        function getBookingBoardItems(booking) {
+            if (Array.isArray(booking.boardItems) && booking.boardItems.length > 0) {
+                return booking.boardItems;
+            }
+
+            return [{
+                boardType: booking.boardType,
+                quantity: Number.parseInt(booking.numberOfBoards, 10) || 0,
+                peoplePerBoard: Number.parseInt(booking.peoplePerBoard, 10) || (booking.boardType === 'partner' ? 2 : 1)
+            }];
+        }
+
+        function formatBoardItems(booking) {
+            return getBookingBoardItems(booking)
+                .map(item => {
+                    const quantity = Number.parseInt(item.quantity || item.numberOfBoards, 10) || 0;
+                    const peoplePerBoard = Number.parseInt(item.peoplePerBoard, 10) || (item.boardType === 'partner' ? 2 : 1);
+                    return `${quantity}x ${getBoardTypeLabel(item.boardType)}, ${peoplePerBoard} Pers./Board`;
+                })
+                .join(' / ');
+        }
+
         function renderBooking(booking) {
             const startDate = new Date(booking.startTime);
             const endDate = new Date(booking.endTime);
@@ -1178,10 +1474,7 @@
             const verifyAction = escapeHtml(`verifyPayment(${bookingIdJs}, this)`);
             const saveNotesAction = escapeHtml(`saveNotes(${bookingIdJs}, this)`);
             const deleteAction = escapeHtml(`deleteBooking(${bookingIdJs}, ${bookingNameJs}, this)`);
-            const boardCount = Number.parseInt(booking.numberOfBoards, 10) || 0;
-            const peoplePerBoard = Number.parseInt(booking.peoplePerBoard, 10) || (booking.boardType === 'partner' ? 2 : 1);
-            const boardType = getBoardTypeLabel(booking.boardType);
-            const boardLabel = `${boardCount}x ${boardType}, ${peoplePerBoard} Pers./Board`;
+            const boardLabel = formatBoardItems(booking);
             const price = formatCurrency(booking.price || 0);
             const notes = booking.notes || '';
             const paymentLabel = booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';

@@ -2,7 +2,8 @@ const form = document.getElementById('bookingForm');
 const bookingDateInput = document.getElementById('bookingDate');
 const startTimeSelect = document.getElementById('startTime');
 const endTimeSelect = document.getElementById('endTime');
-const numberOfBoardsInput = document.getElementById('numberOfBoards');
+const boardItemsContainer = document.getElementById('boardItems');
+const addBoardItemBtn = document.getElementById('addBoardItemBtn');
 const totalPriceDisplay = document.getElementById('totalPrice');
 const submitBtn = document.getElementById('submitBtn');
 const successMessage = document.getElementById('successMessage');
@@ -13,11 +14,8 @@ const durationButtons = document.querySelectorAll('.duration-btn');
 const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]');
 const customDurationButton = document.querySelector('[data-duration-custom]');
 const customTimeField = document.getElementById('customTimeField');
-const boardStepButtons = document.querySelectorAll('[data-board-step]');
 const paymentNote = document.getElementById('paymentNote');
 const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
-const boardTypeInputs = document.querySelectorAll('input[name="boardType"]');
-const peoplePerBoardInputs = document.querySelectorAll('input[name="peoplePerBoard"]');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
@@ -29,6 +27,13 @@ const BOARD_OCCUPANCY_RULES = {
     super_allround: { label: 'Super-Allround', allowedPeoplePerBoard: [1, 2] },
     bigboard: { label: 'Bigboard', allowedPeoplePerBoard: [2] }
 };
+const BOARD_TYPE_OPTIONS = [
+    { value: 'lightweight', label: '1 Leichtgewicht' },
+    { value: 'allround', label: '2 Allround Damen' },
+    { value: 'super_allround', label: '3 Super-Allround' },
+    { value: 'bigboard', label: '4 Bigboard' }
+];
+let boardItemId = 0;
 let selectedFixedDurationMinutes = null;
 
 function timeToMinutes(timeString) {
@@ -40,20 +45,6 @@ function minutesToTime(totalMinutes) {
     const hour = Math.floor(totalMinutes / 60);
     const minute = totalMinutes % 60;
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-}
-
-function getBoardCount() {
-    const numberOfBoards = parseInt(numberOfBoardsInput.value, 10);
-    return Number.isInteger(numberOfBoards) && numberOfBoards >= 1 ? numberOfBoards : null;
-}
-
-function getBoardType() {
-    return document.querySelector('input[name="boardType"]:checked')?.value || 'allround';
-}
-
-function getPeoplePerBoard() {
-    const peoplePerBoard = parseInt(document.querySelector('input[name="peoplePerBoard"]:checked')?.value, 10);
-    return [1, 2].includes(peoplePerBoard) ? peoplePerBoard : null;
 }
 
 function getBoardOccupancyError(boardType, peoplePerBoard) {
@@ -77,6 +68,117 @@ function showBoardOccupancyHint(message = '', isError = false) {
     boardOccupancyHint.textContent = message;
     boardOccupancyHint.classList.toggle('hidden', !message);
     boardOccupancyHint.classList.toggle('error', Boolean(message && isError));
+}
+
+function getBoardTypeOptions(selectedBoardType = 'allround') {
+    return BOARD_TYPE_OPTIONS.map(option => {
+        const selected = option.value === selectedBoardType ? ' selected' : '';
+        return `<option value="${option.value}"${selected}>${option.label}</option>`;
+    }).join('');
+}
+
+function createBoardItem(item = {}) {
+    const itemId = ++boardItemId;
+    const boardType = item.boardType || 'allround';
+    const parsedPeoplePerBoard = Number(item.peoplePerBoard);
+    const peoplePerBoard = [1, 2].includes(parsedPeoplePerBoard) ? parsedPeoplePerBoard : (boardType === 'bigboard' ? 2 : 1);
+    const row = document.createElement('div');
+    row.className = 'board-item';
+    row.dataset.boardItemId = String(itemId);
+    row.innerHTML = `
+        <div class="board-item-type">
+            <label for="boardType-${itemId}">Kategorie</label>
+            <select id="boardType-${itemId}" data-board-item-field="boardType" required>
+                ${getBoardTypeOptions(boardType)}
+            </select>
+        </div>
+        <div class="board-item-people" data-board-item-people>
+            <label for="peoplePerBoard-${itemId}">Personen</label>
+            <select id="peoplePerBoard-${itemId}" data-board-item-field="peoplePerBoard" required>
+                <option value="1"${peoplePerBoard === 1 ? ' selected' : ''}>1</option>
+                <option value="2"${peoplePerBoard === 2 ? ' selected' : ''}>2</option>
+            </select>
+        </div>
+        <button type="button" class="remove-board-btn" data-remove-board-item aria-label="Board-Zeile entfernen">&times;</button>
+    `;
+
+    boardItemsContainer.appendChild(row);
+    syncBoardItemPeople(row);
+    updateRemoveBoardButtons();
+}
+
+function syncBoardItemPeople(row) {
+    const boardType = row.querySelector('[data-board-item-field="boardType"]')?.value || 'allround';
+    const peopleField = row.querySelector('[data-board-item-people]');
+    const peopleSelect = row.querySelector('[data-board-item-field="peoplePerBoard"]');
+    const showPeople = ['super_allround', 'bigboard'].includes(boardType);
+
+    row.classList.toggle('board-item-with-people', showPeople);
+    peopleField.classList.toggle('hidden', !showPeople);
+
+    if (boardType === 'bigboard') {
+        peopleSelect.value = '2';
+        peopleSelect.disabled = true;
+    } else if (boardType === 'super_allround') {
+        peopleSelect.disabled = false;
+        if (!['1', '2'].includes(peopleSelect.value)) {
+            peopleSelect.value = '1';
+        }
+    } else {
+        peopleSelect.value = '1';
+        peopleSelect.disabled = true;
+    }
+}
+
+function resetBoardItems() {
+    boardItemsContainer.innerHTML = '';
+    createBoardItem({ boardType: 'allround', peoplePerBoard: 1 });
+}
+
+function updateRemoveBoardButtons() {
+    const rows = boardItemsContainer.querySelectorAll('.board-item');
+    rows.forEach(row => {
+        const removeButton = row.querySelector('[data-remove-board-item]');
+        if (removeButton) {
+            removeButton.disabled = rows.length <= 1;
+        }
+    });
+}
+
+function getBoardItems() {
+    return [...boardItemsContainer.querySelectorAll('.board-item')].map(row => {
+        const boardType = row.querySelector('[data-board-item-field="boardType"]')?.value || 'allround';
+        const peoplePerBoard = parseInt(row.querySelector('[data-board-item-field="peoplePerBoard"]')?.value, 10);
+
+        return {
+            boardType,
+            quantity: 1,
+            peoplePerBoard
+        };
+    });
+}
+
+function getBoardItemsError(boardItems) {
+    if (boardItems.length === 0) {
+        return 'Bitte füge mindestens ein Board hinzu.';
+    }
+
+    for (const [index, item] of boardItems.entries()) {
+        if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+            return `Board ${index + 1}: Bitte gib eine gültige Anzahl ein.`;
+        }
+
+        if (![1, 2].includes(item.peoplePerBoard)) {
+            return `Board ${index + 1}: Bitte wähle 1 oder 2 Personen.`;
+        }
+
+        const occupancyError = getBoardOccupancyError(item.boardType, item.peoplePerBoard);
+        if (occupancyError) {
+            return boardItems.length > 1 ? `Board ${index + 1}: ${occupancyError}` : occupancyError;
+        }
+    }
+
+    return null;
 }
 
 function generateTimeOptions({ includeClosingTime = false } = {}) {
@@ -189,6 +291,7 @@ function resetBookingUi() {
     dayRateMessage.classList.add('hidden');
     paymentNote.classList.add('hidden');
     showBoardOccupancyHint();
+    resetBoardItems();
     endTimeSelect.innerHTML = buildEndTimeOptions();
     customTimeField.classList.add('hidden');
     selectedFixedDurationMinutes = null;
@@ -202,6 +305,7 @@ const today = new Date();
 today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
 bookingDateInput.min = today.toISOString().slice(0, 10);
 bookingDateInput.value = bookingDateInput.value || bookingDateInput.min;
+resetBoardItems();
 
 startTimeSelect.addEventListener('change', () => {
     const previousEndTime = endTimeSelect.value;
@@ -225,17 +329,40 @@ endTimeSelect.addEventListener('change', () => {
     calculatePrice();
 });
 
-[bookingDateInput, numberOfBoardsInput].forEach(input => {
-    input.addEventListener('change', calculatePrice);
-    input.addEventListener('input', calculatePrice);
+bookingDateInput.addEventListener('change', calculatePrice);
+bookingDateInput.addEventListener('input', calculatePrice);
+
+addBoardItemBtn.addEventListener('click', () => {
+    createBoardItem();
+    calculatePrice();
 });
 
-boardTypeInputs.forEach(input => {
-    input.addEventListener('change', calculatePrice);
+boardItemsContainer.addEventListener('input', (event) => {
+    if (event.target.matches('[data-board-item-field]')) {
+        calculatePrice();
+    }
 });
 
-peoplePerBoardInputs.forEach(input => {
-    input.addEventListener('change', calculatePrice);
+boardItemsContainer.addEventListener('change', (event) => {
+    if (event.target.matches('[data-board-item-field]')) {
+        const row = event.target.closest('.board-item');
+        if (event.target.matches('[data-board-item-field="boardType"]') && row) {
+            syncBoardItemPeople(row);
+        }
+        calculatePrice();
+    }
+});
+
+boardItemsContainer.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-remove-board-item]');
+    if (removeButton) {
+        const rows = boardItemsContainer.querySelectorAll('.board-item');
+        if (rows.length > 1) {
+            removeButton.closest('.board-item')?.remove();
+            updateRemoveBoardButtons();
+            calculatePrice();
+        }
+    }
 });
 
 fixedDurationButtons.forEach(button => {
@@ -245,15 +372,6 @@ fixedDurationButtons.forEach(button => {
 });
 
 customDurationButton.addEventListener('click', showCustomTimeField);
-
-boardStepButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        const step = parseInt(button.dataset.boardStep, 10);
-        const currentValue = parseInt(numberOfBoardsInput.value, 10) || 1;
-        numberOfBoardsInput.value = Math.max(1, currentValue + step);
-        numberOfBoardsInput.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-});
 
 paymentMethodInputs.forEach(input => {
     input.addEventListener('change', () => {
@@ -266,22 +384,20 @@ async function calculatePrice() {
     const bookingDate = bookingDateInput.value;
     const startTime = startTimeSelect.value;
     const endTime = endTimeSelect.value;
-    const numberOfBoards = getBoardCount();
-    const boardType = getBoardType();
-    const peoplePerBoard = getPeoplePerBoard();
-    const occupancyError = getBoardOccupancyError(boardType, peoplePerBoard);
+    const boardItems = getBoardItems();
+    const boardItemsError = getBoardItemsError(boardItems);
 
-    if (occupancyError) {
+    if (boardItemsError) {
         totalPriceDisplay.textContent = '0,00 €';
         dayRateMessage.classList.add('hidden');
-        showBoardOccupancyHint(occupancyError, true);
+        showBoardOccupancyHint(boardItemsError, true);
         updateDurationButtons();
         return;
     }
 
     showBoardOccupancyHint();
 
-    if (!bookingDate || !startTime || !endTime || numberOfBoards === null || peoplePerBoard === null) {
+    if (!bookingDate || !startTime || !endTime) {
         totalPriceDisplay.textContent = '0,00 €';
         dayRateMessage.classList.add('hidden');
         updateDurationButtons();
@@ -300,9 +416,7 @@ async function calculatePrice() {
             body: JSON.stringify({
                 startTime: startDateTime,
                 endTime: endDateTime,
-                numberOfBoards,
-                boardType,
-                peoplePerBoard
+                boardItems
             })
         });
 
@@ -330,17 +444,15 @@ form.addEventListener('submit', async (e) => {
 
     const formData = new FormData(form);
     const paymentMethod = formData.get('paymentMethod');
-    const boardType = formData.get('boardType');
-    const parsedPeoplePerBoard = parseInt(formData.get('peoplePerBoard'), 10);
-    const peoplePerBoard = [1, 2].includes(parsedPeoplePerBoard) ? parsedPeoplePerBoard : null;
-    const occupancyError = getBoardOccupancyError(boardType, peoplePerBoard);
+    const boardItems = getBoardItems();
+    const boardItemsError = getBoardItemsError(boardItems);
     const privacyCheck = document.getElementById('privacyCheck').checked;
     const safetyCheck = document.getElementById('safetyCheck').checked;
     const liabilityCheck = document.getElementById('liabilityCheck').checked;
 
-    if (occupancyError) {
-        showBoardOccupancyHint(occupancyError, true);
-        showErrorMessage(occupancyError);
+    if (boardItemsError) {
+        showBoardOccupancyHint(boardItemsError, true);
+        showErrorMessage(boardItemsError);
         return;
     }
 
@@ -369,9 +481,7 @@ form.addEventListener('submit', async (e) => {
         const bookingData = {
             name: formData.get('name'),
             phone: formData.get('phone'),
-            boardType,
-            numberOfBoards: parseInt(formData.get('numberOfBoards'), 10),
-            peoplePerBoard,
+            boardItems,
             startTime: `${bookingDate}T${startTime}:00`,
             endTime: `${bookingDate}T${endTime}:00`,
             paymentMethod

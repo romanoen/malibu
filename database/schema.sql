@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     board_type TEXT NOT NULL DEFAULT 'allround',
     number_of_boards INTEGER NOT NULL,
     people_per_board INTEGER NOT NULL DEFAULT 1,
+    board_items JSONB NOT NULL DEFAULT '[]'::jsonb,
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP NOT NULL,
     duration_hours INTEGER NOT NULL,
@@ -28,3 +29,12 @@ CREATE TABLE IF NOT EXISTS bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_start_time ON bookings(start_time);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_bookings_created_at ON bookings(created_at);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    endpoint TEXT PRIMARY KEY,
+    subscription JSONB NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_created_at ON push_subscriptions(created_at);

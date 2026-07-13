@@ -38,50 +38,9 @@
                 <section class="form-section">
                     <h2>Ausleihe</h2>
                     <div class="form-group compact-group">
-                        <span class="field-label">Board-Kategorie</span>
-                        <div class="board-type-options" aria-label="Board-Kategorie">
-                            <label class="board-type-option">
-                                <input type="radio" name="boardType" value="lightweight" required>
-                                <span>Leichtgewicht <small>bis ca. 65 kg</small></span>
-                            </label>
-                            <label class="board-type-option">
-                                <input type="radio" name="boardType" value="allround" checked required>
-                                <span>Allround Damen <small>bis ca. 80 kg</small></span>
-                            </label>
-                            <label class="board-type-option">
-                                <input type="radio" name="boardType" value="super_allround" required>
-                                <span>Super-Allround <small>bis ca. 120 kg</small></span>
-                            </label>
-                            <label class="board-type-option">
-                                <input type="radio" name="boardType" value="bigboard" required>
-                                <span>Bigboard <small>bis ca. 180 kg</small></span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="field-grid two-columns">
-                        <div class="form-group">
-                            <label for="numberOfBoards">Anzahl Boards</label>
-                            <div class="board-stepper">
-                                <button type="button" class="stepper-btn" data-board-step="-1" aria-label="Ein Board weniger">−</button>
-                                <input type="number" id="numberOfBoards" name="numberOfBoards" min="1" value="1" inputmode="numeric" required>
-                                <button type="button" class="stepper-btn" data-board-step="1" aria-label="Ein Board mehr">+</button>
-                            </div>
-                        </div>
-
-                        <div class="form-group compact-group">
-                            <span class="field-label">Personen pro Board</span>
-                            <div class="people-options" aria-label="Personen pro Board">
-                                <label class="people-option">
-                                    <input type="radio" name="peoplePerBoard" value="1" checked required>
-                                    <span>1</span>
-                                </label>
-                                <label class="people-option">
-                                    <input type="radio" name="peoplePerBoard" value="2" required>
-                                    <span>2 (+5 €)</span>
-                                </label>
-                            </div>
-                        </div>
+                        <span class="field-label">Boards</span>
+                        <div id="boardItems" class="board-items"></div>
+                        <button type="button" id="addBoardItemBtn" class="add-board-btn">Board hinzufügen</button>
                     </div>
                     <small id="boardOccupancyHint" class="form-hint hidden" aria-live="polite"></small>
 

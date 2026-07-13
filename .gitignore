@@ -1,9 +1,9 @@
 node_modules/
 bookings.json
+push-subscriptions.json
 .env
 .DS_Store
 *.log
 
 # Database files (keep schema.sql and migrate.js, but ignore data)
-# bookings.json is already ignored above
-
+# bookings.json and push-subscriptions.json are already ignored above

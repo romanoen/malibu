@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const webpush = require('web-push');
 const db = require('./database/db');
 const {
   clearFailedLogins,
@@ -24,9 +25,22 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const configuredVapidKeys = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
+  ? {
+      publicKey: process.env.VAPID_PUBLIC_KEY,
+      privateKey: process.env.VAPID_PRIVATE_KEY
+    }
+  : null;
+const vapidKeys = configuredVapidKeys || webpush.generateVAPIDKeys();
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:info@malibu-sup.local';
 let httpServer = null;
 
 app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
+webpush.setVapidDetails(vapidSubject, vapidKeys.publicKey, vapidKeys.privateKey);
+
+if (!configuredVapidKeys && process.env.NODE_ENV !== 'test') {
+  console.warn('⚠️  VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY are not set. Using temporary push keys for this server run.');
+}
 
 // Middleware
 app.use(cors());
@@ -55,6 +69,341 @@ function sendUnauthorized(res) {
   return res.status(401).json({ error: 'Nicht autorisiert' });
 }
 
+function transliterateForPdf(value) {
+  return String(value ?? '')
+    .replace(/ä/g, 'ae')
+    .replace(/ö/g, 'oe')
+    .replace(/ü/g, 'ue')
+    .replace(/Ä/g, 'Ae')
+    .replace(/Ö/g, 'Oe')
+    .replace(/Ü/g, 'Ue')
+    .replace(/ß/g, 'ss')
+    .replace(/€/g, 'EUR')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapePdfText(value) {
+  return transliterateForPdf(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+}
+
+function formatCurrency(amount) {
+  return Number.parseFloat(amount || 0).toLocaleString('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }) + ' EUR';
+}
+
+function formatPdfTime(value) {
+  return new Date(value).toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function formatPushDateTimeRange(booking = {}) {
+  const startDate = new Date(booking.startTime);
+  const endDate = new Date(booking.endTime);
+  const date = startDate.toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit'
+  });
+  const startTime = startDate.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const endTime = endDate.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `${date}, ${startTime}-${endTime}`;
+}
+
+function getBoardTypeLabel(boardType) {
+  const labels = {
+    lightweight: '1 Leichtgewicht',
+    allround: '2 Allround Damen',
+    super_allround: '3 Super-Allround',
+    bigboard: '4 Bigboard',
+    single: 'Singleboard',
+    partner: 'Partnerboard'
+  };
+
+  return labels[boardType] || 'Board';
+}
+
+function getBookingBoardItems(booking = {}) {
+  if (Array.isArray(booking.boardItems) && booking.boardItems.length > 0) {
+    return booking.boardItems;
+  }
+
+  return [{
+    boardType: booking.boardType,
+    quantity: Number.parseInt(booking.numberOfBoards, 10) || 0,
+    peoplePerBoard: Number.parseInt(booking.peoplePerBoard, 10) || (booking.boardType === 'partner' ? 2 : 1)
+  }];
+}
+
+function formatBoardItems(booking = {}) {
+  return getBookingBoardItems(booking).map(item => {
+    const quantity = Number.parseInt(item.quantity || item.numberOfBoards, 10) || 0;
+    const peoplePerBoard = Number.parseInt(item.peoplePerBoard, 10) || (item.boardType === 'partner' ? 2 : 1);
+    return `${quantity}x ${getBoardTypeLabel(item.boardType)}, ${peoplePerBoard} Pers./Board`;
+  }).join(' / ');
+}
+
+function createBookingPushPayload(booking = {}) {
+  const name = booking.name || 'Neue Buchung';
+  const amount = formatCurrency(booking.price || 0);
+  const timeRange = formatPushDateTimeRange(booking);
+
+  return {
+    title: 'Neue Buchung',
+    body: `${name} · ${amount} · ${timeRange}`,
+    tag: `booking-${booking.id || Date.now()}`,
+    url: '/admin.html',
+    icon: '/favicon.svg',
+    badge: '/favicon.svg',
+    bookingId: booking.id
+  };
+}
+
+async function notifyNewBooking(booking) {
+  if (process.env.NODE_ENV === 'test') {
+    return;
+  }
+
+  const subscriptions = await db.readPushSubscriptions();
+
+  if (subscriptions.length === 0) {
+    return;
+  }
+
+  const payload = JSON.stringify(createBookingPushPayload(booking));
+  const results = await Promise.allSettled(subscriptions.map(async subscription => {
+    try {
+      await webpush.sendNotification(subscription, payload);
+    } catch (error) {
+      if (error.statusCode === 404 || error.statusCode === 410) {
+        await db.deletePushSubscription(subscription.endpoint);
+        return;
+      }
+
+      throw error;
+    }
+  }));
+
+  const failedResults = results.filter(result => result.status === 'rejected');
+  if (failedResults.length > 0) {
+    console.error(`Push notification failed for ${failedResults.length} subscription(s)`);
+    failedResults.forEach(result => console.error(result.reason?.message || result.reason));
+  }
+}
+
+function getPaymentLabel(paymentMethod) {
+  return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+}
+
+function wrapPdfText(text, maxLength = 92) {
+  const words = transliterateForPdf(text).split(' ').filter(Boolean);
+  const lines = [];
+  let line = '';
+
+  words.forEach(word => {
+    const nextLine = line ? `${line} ${word}` : word;
+    if (nextLine.length > maxLength && line) {
+      lines.push(line);
+      line = word;
+      return;
+    }
+
+    line = nextLine;
+  });
+
+  if (line) {
+    lines.push(line);
+  }
+
+  return lines.length > 0 ? lines : [''];
+}
+
+function buildPdfDocument(pages) {
+  const objects = [];
+  const addObject = content => {
+    objects.push(content);
+    return objects.length;
+  };
+
+  addObject('<< /Type /Catalog /Pages 2 0 R >>');
+  addObject('');
+  addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
+  addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
+
+  const pageObjectIds = [];
+  pages.forEach(pageContent => {
+    const content = pageContent.join('\n');
+    const contentObjectId = objects.length + 2;
+    const pageObjectId = addObject(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentObjectId} 0 R >>`);
+    addObject(`<< /Length ${Buffer.byteLength(content, 'ascii')} >>\nstream\n${content}\nendstream`);
+    pageObjectIds.push(pageObjectId);
+  });
+
+  objects[1] = `<< /Type /Pages /Kids [${pageObjectIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageObjectIds.length} >>`;
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+
+  objects.forEach((object, index) => {
+    offsets.push(Buffer.byteLength(pdf, 'ascii'));
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+  });
+
+  const xrefOffset = Buffer.byteLength(pdf, 'ascii');
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  offsets.slice(1).forEach(offset => {
+    pdf += `${String(offset).padStart(10, '0')} 00000 n \n`;
+  });
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  return Buffer.from(pdf, 'ascii');
+}
+
+function createRevenuePdf(bookings = []) {
+  const pageWidth = 595;
+  const margin = 42;
+  const bottomMargin = 50;
+  const pages = [];
+  let commands = [];
+  let y = 800;
+  let pageNumber = 0;
+
+  const addPage = () => {
+    commands = [];
+    pages.push(commands);
+    pageNumber += 1;
+    y = 800;
+
+    commands.push('0.11 0.16 0.15 rg');
+    commands.push(`BT /F2 16 Tf ${margin} ${y} Td (${escapePdfText('Malibu SUP Umsatzaufstellung')}) Tj ET`);
+    commands.push('0.36 0.42 0.39 rg');
+    commands.push(`BT /F1 9 Tf ${pageWidth - 120} ${y} Td (${escapePdfText(`Seite ${pageNumber}`)}) Tj ET`);
+    y -= 22;
+    commands.push('0.82 0.82 0.78 RG');
+    commands.push(`${margin} ${y} m ${pageWidth - margin} ${y} l S`);
+    y -= 24;
+  };
+
+  const ensureSpace = neededHeight => {
+    if (y - neededHeight < bottomMargin) {
+      addPage();
+    }
+  };
+
+  const addText = (x, text, { size = 10, bold = false, color = '0.11 0.16 0.15' } = {}) => {
+    commands.push(`${color} rg`);
+    commands.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${x} ${y} Td (${escapePdfText(text)}) Tj ET`);
+  };
+
+  const addWrappedText = (x, text, maxLength, options = {}) => {
+    const lines = wrapPdfText(text, maxLength);
+    lines.forEach(line => {
+      ensureSpace(14);
+      addText(x, line, options);
+      y -= options.lineHeight || 13;
+    });
+  };
+
+  const sortedBookings = [...bookings].sort((left, right) => {
+    return new Date(left.startTime).getTime() - new Date(right.startTime).getTime();
+  });
+  const totalRevenue = sortedBookings.reduce((sum, booking) => sum + Number.parseFloat(booking.price || 0), 0);
+
+  addPage();
+  addText(margin, `Erstellt am ${new Date().toLocaleString('de-DE')}`, { size: 9, color: '0.36 0.42 0.39' });
+  y -= 20;
+  addText(margin, `Gesamtumsatz: ${formatCurrency(totalRevenue)}`, { size: 12, bold: true });
+  y -= 16;
+  addText(margin, `Buchungen: ${sortedBookings.length}`, { size: 10 });
+  y -= 22;
+
+  let currentMonth = '';
+  sortedBookings.forEach(booking => {
+    const monthLabel = new Date(booking.startTime).toLocaleDateString('de-DE', {
+      year: 'numeric',
+      month: 'long'
+    });
+
+    if (monthLabel !== currentMonth) {
+      ensureSpace(34);
+      currentMonth = monthLabel;
+      y -= 6;
+      addText(margin, monthLabel, { size: 12, bold: true });
+      y -= 16;
+      commands.push('0.82 0.82 0.78 RG');
+      commands.push(`${margin} ${y} m ${pageWidth - margin} ${y} l S`);
+      y -= 12;
+    }
+
+    ensureSpace(62);
+    const timeRange = `${formatPdfTime(booking.startTime)}-${formatPdfTime(booking.endTime)}`;
+    const bookingDate = new Date(booking.startTime).toLocaleDateString('de-DE');
+    const amount = formatCurrency(booking.price);
+    addText(margin, `${bookingDate}  ${timeRange}  ${booking.name || 'Ohne Namen'}`, { size: 10, bold: true });
+    addText(pageWidth - 122, amount, { size: 10, bold: true });
+    y -= 14;
+    addWrappedText(margin + 12, `Boards: ${formatBoardItems(booking)}`, 95, { size: 9, color: '0.20 0.25 0.24' });
+    addWrappedText(
+      margin + 12,
+      `Zahlung: ${getPaymentLabel(booking.paymentMethod)} | Telefon: ${booking.phone || '-'}`,
+      95,
+      { size: 9, color: '0.36 0.42 0.39' }
+    );
+    y -= 6;
+  });
+
+  if (sortedBookings.length === 0) {
+    addText(margin, 'Keine Buchungen vorhanden.', { size: 11 });
+  }
+
+  return buildPdfDocument(pages);
+}
+
+function getPeriodStartDate(period) {
+  const now = new Date();
+  const startDate = new Date();
+
+  switch (period) {
+    case 'week':
+      startDate.setDate(now.getDate() - 7);
+      return startDate;
+    case 'month':
+      startDate.setMonth(now.getMonth() - 1);
+      return startDate;
+    case 'year':
+      startDate.setFullYear(now.getFullYear() - 1);
+      return startDate;
+    default:
+      return new Date(0);
+  }
+}
+
+function filterBookingsByPeriod(bookings, period) {
+  const startDate = getPeriodStartDate(period);
+
+  return bookings.filter(booking => {
+    const bookingDate = new Date(booking.createdAt);
+    return bookingDate >= startDate;
+  });
+}
+
 // API Routes
 app.post('/api/bookings', async (req, res) => {
   try {
@@ -70,25 +419,24 @@ app.post('/api/bookings', async (req, res) => {
     const {
       name,
       phone,
-      boardType,
-      numberOfBoards,
-      peoplePerBoard,
+      boardItems,
       startTime,
       endTime,
       paymentMethod,
       duration
     } = validation.booking;
 
-    const priceResult = calculatePrice(duration, numberOfBoards, boardType, peoplePerBoard);
+    const priceResult = calculatePrice(duration, boardItems);
     const price = priceResult.price;
     
     const booking = {
       id: crypto.randomUUID(),
       name,
       phone,
-      boardType,
-      numberOfBoards,
-      peoplePerBoard,
+      boardItems: priceResult.boardItems,
+      boardType: priceResult.boardType,
+      numberOfBoards: priceResult.numberOfBoards,
+      peoplePerBoard: priceResult.peoplePerBoard,
       startTime,
       endTime,
       duration,
@@ -115,12 +463,16 @@ app.post('/api/bookings', async (req, res) => {
     
     // Save booking
     await db.saveBooking(booking);
+    notifyNewBooking(booking).catch(error => {
+      console.error('Error sending booking push notification:', error);
+    });
     
     res.json({
       success: true,
       booking: {
         id: booking.id,
         name: booking.name,
+        boardItems: booking.boardItems,
         boardType: booking.boardType,
         peoplePerBoard: booking.peoplePerBoard,
         price: booking.price,
@@ -156,6 +508,44 @@ app.get('/api/admin/bookings', checkAdminSession, async (req, res) => {
   } catch (error) {
     console.error('Error fetching bookings:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+app.get('/api/admin/push-public-key', checkAdminSession, (req, res) => {
+  res.json({
+    publicKey: vapidKeys.publicKey
+  });
+});
+
+app.post('/api/admin/push-subscriptions', checkAdminSession, async (req, res) => {
+  try {
+    const { subscription } = req.body || {};
+
+    if (!subscription || typeof subscription.endpoint !== 'string') {
+      return res.status(400).json({ error: 'Push-Subscription fehlt' });
+    }
+
+    await db.savePushSubscription(subscription);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error saving push subscription:', error);
+    res.status(500).json({ error: 'Push-Benachrichtigung konnte nicht aktiviert werden' });
+  }
+});
+
+app.delete('/api/admin/push-subscriptions', checkAdminSession, async (req, res) => {
+  try {
+    const { endpoint } = req.body || {};
+
+    if (typeof endpoint !== 'string') {
+      return res.status(400).json({ error: 'Push-Endpoint fehlt' });
+    }
+
+    await db.deletePushSubscription(endpoint);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting push subscription:', error);
+    res.status(500).json({ error: 'Push-Subscription konnte nicht entfernt werden' });
   }
 });
 
@@ -226,29 +616,7 @@ app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
   try {
     const { period } = req.query; // 'week', 'month', 'year'
     const bookings = await db.readBookings();
-    
-    const now = new Date();
-    let startDate = new Date();
-    
-    switch (period) {
-      case 'week':
-        startDate.setDate(now.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setMonth(now.getMonth() - 1);
-        break;
-      case 'year':
-        startDate.setFullYear(now.getFullYear() - 1);
-        break;
-      default:
-        startDate = new Date(0); // All time
-    }
-    
-    // Get all bookings in the period (both confirmed and unconfirmed)
-    const allBookingsInPeriod = bookings.filter(b => {
-      const bookingDate = new Date(b.createdAt);
-      return bookingDate >= startDate;
-    });
+    const allBookingsInPeriod = filterBookingsByPeriod(bookings, period);
     
     // Get unconfirmed bookings (pending or payment_pending)
     const unconfirmedBookings = allBookingsInPeriod.filter(b => 
@@ -269,6 +637,22 @@ app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
   } catch (error) {
     console.error('Error fetching statistics:', error);
     res.status(500).json({ error: 'Fehler beim Laden der Statistiken' });
+  }
+});
+
+app.get('/api/admin/revenue-pdf', checkAdminSession, async (req, res) => {
+  try {
+    const bookings = await db.readBookings();
+    const pdf = createRevenuePdf(filterBookingsByPeriod(bookings, 'year'));
+    const fileDate = new Date().toISOString().slice(0, 10);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="malibu-umsatzaufstellung-jahr-${fileDate}.pdf"`);
+    res.setHeader('Content-Length', pdf.length);
+    res.send(pdf);
+  } catch (error) {
+    console.error('Error creating revenue PDF:', error);
+    res.status(500).json({ error: 'Fehler beim Erstellen der Umsatzaufstellung' });
   }
 });
 
@@ -359,9 +743,7 @@ app.post('/api/calculate-price', (req, res) => {
 
     const priceResult = calculatePrice(
       validation.booking.duration,
-      validation.booking.numberOfBoards,
-      validation.booking.boardType,
-      validation.booking.peoplePerBoard
+      validation.booking.boardItems
     );
     
     res.json({ 
@@ -370,7 +752,9 @@ app.post('/api/calculate-price', (req, res) => {
       pricePerBoard: priceResult.pricePerBoard,
       basePricePerBoard: priceResult.basePricePerBoard,
       occupancySurchargePerBoard: priceResult.occupancySurchargePerBoard,
+      boardItems: priceResult.boardItems,
       boardType: priceResult.boardType,
+      numberOfBoards: priceResult.numberOfBoards,
       peoplePerBoard: priceResult.peoplePerBoard
     });
   } catch (error) {
