@@ -211,3 +211,38 @@ test('admin can delete a booking through the protected admin API', async () => {
   assert.equal(secondDeleteResponse.status, 404);
   assert.match((await secondDeleteResponse.json()).error, /Buchung nicht gefunden/);
 });
+
+test('admin can export bookings as a protected JSON backup', async () => {
+  const tempFileState = await createTempBookingsFile([{
+    id: 'booking-export-test',
+    name: 'Export Test',
+    phone: '0170 7654321',
+    boardType: 'allround',
+    numberOfBoards: 1,
+    peoplePerBoard: 1,
+    startTime: '2026-04-25T10:00:00',
+    endTime: '2026-04-25T11:30:00',
+    price: 15,
+    paymentMethod: 'cash',
+    status: 'pending',
+    createdAt: '2026-04-20T08:00:00.000Z'
+  }]);
+  tempDirectory = tempFileState.directory;
+  process.env.BOOKINGS_FILE = tempFileState.bookingsFile;
+
+  const unauthorizedResponse = await fetch(`${baseUrl}/api/admin/database-export`);
+  assert.equal(unauthorizedResponse.status, 401);
+
+  const sessionCookie = await loginAsAdmin();
+  const exportResponse = await fetch(`${baseUrl}/api/admin/database-export`, {
+    headers: { Cookie: sessionCookie }
+  });
+
+  assert.equal(exportResponse.status, 200);
+  assert.match(exportResponse.headers.get('content-type') || '', /application\/json/);
+  assert.match(exportResponse.headers.get('content-disposition') || '', /malibu-datenbank-export-/);
+
+  const exportData = await exportResponse.json();
+  assert.equal(exportData.recordCounts.bookings, 1);
+  assert.equal(exportData.bookings[0].id, 'booking-export-test');
+});

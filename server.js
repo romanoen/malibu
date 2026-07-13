@@ -906,6 +906,31 @@ app.get('/api/admin/revenue-pdf', checkAdminSession, async (req, res) => {
   }
 });
 
+app.get('/api/admin/database-export', checkAdminSession, async (req, res) => {
+  try {
+    const bookings = await db.readBookings();
+    const exportedAt = new Date().toISOString();
+    const fileDate = exportedAt.slice(0, 10);
+    const exportData = {
+      exportedAt,
+      storage: db.getStorageMode(),
+      recordCounts: {
+        bookings: bookings.length
+      },
+      bookings
+    };
+    const json = JSON.stringify(exportData, null, 2);
+
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="malibu-datenbank-export-${fileDate}.json"`);
+    res.setHeader('Content-Length', Buffer.byteLength(json, 'utf8'));
+    res.send(json);
+  } catch (error) {
+    console.error('Error exporting database:', error);
+    res.status(500).json({ error: 'Fehler beim Exportieren der Datenbank' });
+  }
+});
+
 // Verify payment (PayPal or Cash)
 app.post('/api/bookings/:id/verify', checkAdminSession, async (req, res) => {
   try {

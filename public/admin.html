@@ -176,6 +176,7 @@
             justify-content: flex-end;
             gap: 10px;
             flex-wrap: wrap;
+            position: relative;
         }
 
         .download-icon {
@@ -185,6 +186,67 @@
             width: 1em;
             font-size: 1.05em;
             line-height: 1;
+        }
+
+        .topbar-menu {
+            position: relative;
+        }
+
+        .menu-toggle {
+            width: 46px;
+            min-height: 42px;
+            padding: 10px;
+            border-radius: 999px;
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+
+        .admin-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: min(280px, calc(100vw - 48px));
+            display: grid;
+            gap: 6px;
+            padding: 8px;
+            border: 1px solid rgba(24, 35, 32, 0.10);
+            border-radius: var(--admin-radius-md);
+            background: var(--admin-surface-strong);
+            box-shadow: var(--admin-shadow-soft);
+            z-index: 20;
+        }
+
+        .menu-item {
+            width: 100%;
+            min-height: 42px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 12px;
+            border: 0;
+            border-radius: var(--admin-radius-sm);
+            background: transparent;
+            color: var(--admin-text);
+            cursor: pointer;
+            font: inherit;
+            font-size: 0.92rem;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        .menu-item:hover {
+            background: rgba(24, 35, 32, 0.06);
+        }
+
+        .menu-item.push-active {
+            background: var(--admin-success-soft);
+            color: var(--admin-success);
+        }
+
+        .menu-item:disabled {
+            color: #9aa39f;
+            cursor: not-allowed;
+            background: transparent;
         }
 
         .dashboard {
@@ -224,6 +286,63 @@
             font-size: 0.95rem;
             line-height: 1.45;
             min-height: 1.45em;
+        }
+
+        .chart-card {
+            min-height: 210px;
+        }
+
+        .revenue-chart {
+            margin-top: 18px;
+            min-height: 122px;
+        }
+
+        .revenue-chart svg {
+            display: block;
+            width: 100%;
+            height: 122px;
+            overflow: visible;
+        }
+
+        .chart-axis {
+            stroke: rgba(24, 35, 32, 0.14);
+            stroke-width: 1;
+        }
+
+        .chart-line {
+            fill: none;
+            stroke: var(--admin-accent);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .chart-area {
+            fill: rgba(47, 107, 95, 0.10);
+        }
+
+        .chart-point {
+            fill: var(--admin-surface-strong);
+            stroke: var(--admin-accent);
+            stroke-width: 2.5;
+        }
+
+        .chart-empty {
+            min-height: 122px;
+            display: grid;
+            place-items: center;
+            border-radius: var(--admin-radius-md);
+            background: rgba(24, 35, 32, 0.04);
+            color: var(--admin-muted);
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .chart-summary {
+            margin-top: 12px;
+            color: var(--admin-muted);
+            font-size: 0.95rem;
+            line-height: 1.45;
         }
 
         .period-selector {
@@ -681,6 +800,14 @@
                 justify-content: center;
             }
 
+            .menu-toggle {
+                width: 46px;
+            }
+
+            .topbar-actions {
+                align-self: flex-end;
+            }
+
             .new-booking-notification {
                 left: 16px;
                 right: 16px;
@@ -711,14 +838,27 @@
                     <h1>Buchungen verwalten</h1>
                 </div>
                 <div class="topbar-actions">
-                    <button type="button" id="pushToggleButton" onclick="handlePushButtonClick(this)" class="btn btn-secondary" disabled>
-                        Push prüfen...
-                    </button>
-                    <button type="button" onclick="downloadRevenuePdf()" class="btn btn-secondary">
-                        <span class="download-icon" aria-hidden="true">&#8595;</span>
-                        Umsatzaufstellung
-                    </button>
-                    <button onclick="logout()" class="btn btn-secondary">Abmelden</button>
+                    <div class="topbar-menu">
+                        <button type="button" id="adminMenuToggle" class="btn btn-secondary menu-toggle" onclick="toggleAdminMenu(event)" aria-haspopup="true" aria-expanded="false" aria-label="Admin-Menü öffnen">
+                            &#8942;
+                        </button>
+                        <div id="adminMenu" class="admin-menu hidden" role="menu" aria-label="Admin-Menü">
+                            <button type="button" id="pushToggleButton" onclick="handlePushButtonClick(this)" class="menu-item" role="menuitem" disabled>
+                                Push prüfen...
+                            </button>
+                            <button type="button" onclick="downloadRevenuePdf()" class="menu-item" role="menuitem">
+                                <span class="download-icon" aria-hidden="true">&#8595;</span>
+                                Umsatzaufstellung herunterladen
+                            </button>
+                            <button type="button" onclick="downloadDatabaseExport()" class="menu-item" role="menuitem">
+                                <span class="download-icon" aria-hidden="true">&#8595;</span>
+                                Datenbank exportieren
+                            </button>
+                            <button type="button" onclick="logout()" class="menu-item" role="menuitem">
+                                Abmelden
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -735,6 +875,11 @@
                     <button class="period-btn" onclick="loadStatistics('year', true)">Jahr</button>
                 </div>
             </div>
+            <div class="stat-card chart-card">
+                <h3>Umsatzentwicklung</h3>
+                <div id="revenueChart" class="revenue-chart" aria-label="Umsatzentwicklung als Liniendiagramm"></div>
+                <div id="revenueChartSummary" class="chart-summary">Noch keine Daten geladen.</div>
+            </div>
             <div class="stat-card">
                 <h3>Buchungen</h3>
                 <div class="value" id="totalBookings">0</div>
@@ -749,6 +894,7 @@
         let isAuthenticated = false;
         let authStateVersion = 0;
         let currentPeriod = localStorage.getItem('adminPeriod') || 'month';
+        let latestBookings = [];
         let expandedDays = readStoredJsonArray('adminExpandedDays');
         let lastBookingCount = 0;
         let lastBookingId = null;
@@ -842,6 +988,148 @@
         function toPositiveInteger(value, fallback = 1) {
             const parsedValue = Number.parseInt(value, 10);
             return Number.isFinite(parsedValue) && parsedValue > 0 ? parsedValue : fallback;
+        }
+
+        function toDateKey(date) {
+            return [
+                date.getFullYear().toString().padStart(4, '0'),
+                (date.getMonth() + 1).toString().padStart(2, '0'),
+                date.getDate().toString().padStart(2, '0')
+            ].join('-');
+        }
+
+        function toMonthKey(date) {
+            return [
+                date.getFullYear().toString().padStart(4, '0'),
+                (date.getMonth() + 1).toString().padStart(2, '0')
+            ].join('-');
+        }
+
+        function getChartPeriodLabel(period) {
+            const labels = {
+                week: 'den letzten 7 Tagen',
+                month: 'den letzten 30 Tagen',
+                year: 'den letzten 12 Monaten'
+            };
+            return labels[period] || 'dem ausgewählten Zeitraum';
+        }
+
+        function getRevenueChartBuckets(period) {
+            const now = new Date();
+            if (period === 'year') {
+                return Array.from({ length: 12 }, (_, index) => {
+                    const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+                    return {
+                        key: toMonthKey(date),
+                        label: date.toLocaleDateString('de-DE', { month: 'short' })
+                    };
+                });
+            }
+
+            const days = period === 'week' ? 7 : 30;
+            return Array.from({ length: days }, (_, index) => {
+                const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1 - index));
+                return {
+                    key: toDateKey(date),
+                    label: date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })
+                };
+            });
+        }
+
+        function getRevenueChartKey(booking, period) {
+            const date = parseBookingDate(booking.startTime) || parseBookingDate(booking.createdAt);
+            if (!date) {
+                return null;
+            }
+
+            return period === 'year' ? toMonthKey(date) : toDateKey(date);
+        }
+
+        function renderRevenueChart(bookings = latestBookings, period = currentPeriod) {
+            const chart = document.getElementById('revenueChart');
+            const summary = document.getElementById('revenueChartSummary');
+            if (!chart || !summary) {
+                return;
+            }
+
+            const buckets = getRevenueChartBuckets(period);
+            const totals = new Map(buckets.map(bucket => [bucket.key, 0]));
+
+            bookings.forEach(booking => {
+                const key = getRevenueChartKey(booking, period);
+                if (!totals.has(key)) {
+                    return;
+                }
+
+                totals.set(key, totals.get(key) + Number.parseFloat(booking.price || 0));
+            });
+
+            const values = buckets.map(bucket => ({
+                ...bucket,
+                value: totals.get(bucket.key) || 0
+            }));
+            const total = values.reduce((sum, item) => sum + item.value, 0);
+
+            if (total <= 0) {
+                chart.innerHTML = '<div class="chart-empty">Keine Umsätze im Zeitraum</div>';
+                summary.textContent = `Keine Umsätze in ${getChartPeriodLabel(period)}.`;
+                return;
+            }
+
+            const maxValue = Math.max(...values.map(item => item.value), 1);
+            const minX = 8;
+            const maxX = 92;
+            const minY = 14;
+            const maxY = 96;
+            const xStep = values.length > 1 ? (maxX - minX) / (values.length - 1) : 0;
+            const points = values.map((item, index) => {
+                const x = minX + (xStep * index);
+                const y = maxY - ((item.value / maxValue) * (maxY - minY));
+                return { ...item, x, y };
+            });
+            const linePoints = points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+            const areaPoints = [
+                `${points[0].x.toFixed(2)},${maxY}`,
+                linePoints,
+                `${points[points.length - 1].x.toFixed(2)},${maxY}`
+            ].join(' ');
+            const visiblePoints = points.filter((_, index) => (
+                points.length <= 12 ||
+                index === 0 ||
+                index === points.length - 1 ||
+                values[index].value > 0
+            ));
+
+            chart.innerHTML = `
+                <svg viewBox="0 0 100 118" role="img" aria-label="Umsatzentwicklung">
+                    <line class="chart-axis" x1="8" y1="96" x2="92" y2="96"></line>
+                    <polygon class="chart-area" points="${areaPoints}"></polygon>
+                    <polyline class="chart-line" points="${linePoints}"></polyline>
+                    ${visiblePoints.map(point => `
+                        <circle class="chart-point" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="2.6">
+                            <title>${escapeHtml(point.label)}: ${escapeHtml(formatCurrency(point.value))}</title>
+                        </circle>
+                    `).join('')}
+                </svg>
+            `;
+            const peak = values.reduce((highest, item) => item.value > highest.value ? item : highest, values[0]);
+            summary.textContent = `${formatCurrency(total)} in ${getChartPeriodLabel(period)}. Höchster Punkt: ${peak.label} mit ${formatCurrency(peak.value)}.`;
+        }
+
+        function closeAdminMenu() {
+            const menu = document.getElementById('adminMenu');
+            const toggle = document.getElementById('adminMenuToggle');
+            menu?.classList.add('hidden');
+            toggle?.setAttribute('aria-expanded', 'false');
+        }
+
+        function toggleAdminMenu(event) {
+            event?.stopPropagation();
+            const menu = document.getElementById('adminMenu');
+            const toggle = document.getElementById('adminMenuToggle');
+            const isOpen = !menu.classList.contains('hidden');
+            menu.classList.toggle('hidden', isOpen);
+            toggle.setAttribute('aria-expanded', String(!isOpen));
         }
 
         async function readJson(response) {
@@ -951,6 +1239,7 @@
         }
 
         async function handlePushButtonClick(button) {
+            closeAdminMenu();
             if (button?.dataset.pushMode === 'test') {
                 await sendTestPushNotification(button);
                 return;
@@ -1256,6 +1545,18 @@
             });
         }
 
+        document.addEventListener('click', event => {
+            if (!event.target.closest('.topbar-menu')) {
+                closeAdminMenu();
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                closeAdminMenu();
+            }
+        });
+
         checkSession();
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
@@ -1347,6 +1648,8 @@
             lastBookingCount = 0;
             lastBookingId = null;
             hasLoadedOnce = false;
+            latestBookings = [];
+            renderRevenueChart([], currentPeriod);
             clearAdminFeedback();
             document.getElementById('loginScreen').classList.remove('hidden');
             document.getElementById('adminDashboard').classList.add('hidden');
@@ -1361,6 +1664,7 @@
         }
 
         async function logout() {
+            closeAdminMenu();
             try {
                 await fetch('/api/admin/logout', {
                     method: 'POST',
@@ -1374,6 +1678,7 @@
         }
 
         async function downloadRevenuePdf() {
+            closeAdminMenu();
             try {
                 const response = await adminFetch('/api/admin/revenue-pdf');
                 if (!response.ok) {
@@ -1381,20 +1686,39 @@
                     throw new Error(data?.error || 'Download fehlgeschlagen');
                 }
 
-                const blob = await response.blob();
-                const downloadUrl = URL.createObjectURL(blob);
-                const disposition = response.headers.get('content-disposition') || '';
-                const filenameMatch = disposition.match(/filename="([^"]+)"/);
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.download = filenameMatch?.[1] || 'malibu-umsatzaufstellung.pdf';
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(downloadUrl);
+                await downloadResponseAsFile(response, 'malibu-umsatzaufstellung.pdf');
             } catch (error) {
                 showAdminFeedback(error.message || 'Download fehlgeschlagen.', 'error');
             }
+        }
+
+        async function downloadDatabaseExport() {
+            closeAdminMenu();
+            try {
+                const response = await adminFetch('/api/admin/database-export');
+                if (!response.ok) {
+                    const data = await readJson(response);
+                    throw new Error(data?.error || 'Export fehlgeschlagen');
+                }
+
+                await downloadResponseAsFile(response, 'malibu-datenbank-export.json');
+            } catch (error) {
+                showAdminFeedback(error.message || 'Export fehlgeschlagen.', 'error');
+            }
+        }
+
+        async function downloadResponseAsFile(response, fallbackFilename) {
+            const blob = await response.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+            const disposition = response.headers.get('content-disposition') || '';
+            const filenameMatch = disposition.match(/filename="([^"]+)"/);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = filenameMatch?.[1] || fallbackFilename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(downloadUrl);
         }
 
         function showLoginError(message) {
@@ -1445,6 +1769,7 @@
                     year: 'Dieses Jahr'
                 };
                 document.getElementById('periodLabel').textContent = periodLabels[period] || 'Gesamt';
+                renderRevenueChart(latestBookings, currentPeriod);
             } catch (error) {
                 console.error('Error loading statistics:', error);
             }
@@ -1459,6 +1784,8 @@
 
                 const bookingsData = await readJson(response) || [];
                 const bookings = Array.isArray(bookingsData) ? bookingsData : [];
+                latestBookings = bookings;
+                renderRevenueChart(latestBookings, currentPeriod);
                 const currentBookingCount = bookings.length;
                 const newestBookingId = bookings.length > 0 ? bookings[0].id : null;
                 const hasBookingChanges = !hasLoadedOnce ||
