@@ -170,8 +170,6 @@ function createBookingPushPayload(booking = {}) {
     body: `${name} · ${amount} · ${timeRange}`,
     tag: `booking-${booking.id || Date.now()}`,
     url: '/admin.html',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg',
     bookingId: booking.id
   };
 }
@@ -179,11 +177,9 @@ function createBookingPushPayload(booking = {}) {
 function createTestPushPayload() {
   return {
     title: 'Malibu SUP Test',
-    body: 'Push-Benachrichtigung funktioniert.',
+    body: `Push-Benachrichtigung funktioniert. ${new Date().toLocaleTimeString('de-DE')}`,
     tag: `push-test-${Date.now()}`,
-    url: '/admin.html',
-    icon: '/favicon.svg',
-    badge: '/favicon.svg'
+    url: '/admin.html'
   };
 }
 
@@ -211,7 +207,10 @@ async function sendPushPayload(payload) {
   const message = JSON.stringify(payload);
   const results = await Promise.allSettled(subscriptions.map(async subscription => {
     try {
-      await webpush.sendNotification(subscription, message);
+      await webpush.sendNotification(subscription, message, {
+        TTL: 60,
+        urgency: 'high'
+      });
       return 'sent';
     } catch (error) {
       if (error.statusCode === 404 || error.statusCode === 410) {

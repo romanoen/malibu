@@ -757,6 +757,7 @@
         let feedbackTimeoutId = null;
         let pushRegistration = null;
         let pushPublicKeyPromise = null;
+        const PUSH_PUBLIC_KEY_STORAGE_KEY = 'malibuPushPublicKey';
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -968,6 +969,7 @@
             }
 
             pushRegistration = await navigator.serviceWorker.register('/admin-sw.js');
+            await pushRegistration.update().catch(() => {});
             await navigator.serviceWorker.ready;
             return pushRegistration;
         }
@@ -999,8 +1001,10 @@
 
         async function getCurrentPushSubscription(registration, publicKey) {
             let subscription = await registration.pushManager.getSubscription();
+            const storedPublicKey = localStorage.getItem(PUSH_PUBLIC_KEY_STORAGE_KEY);
+            const hasStoredKeyMismatch = storedPublicKey && storedPublicKey !== publicKey;
 
-            if (subscription && !subscriptionMatchesPublicKey(subscription, publicKey)) {
+            if (subscription && (hasStoredKeyMismatch || !subscriptionMatchesPublicKey(subscription, publicKey))) {
                 const endpoint = subscription.endpoint;
                 await subscription.unsubscribe();
                 await deleteStoredPushSubscription(endpoint).catch(() => {});
@@ -1036,6 +1040,7 @@
 
                 if (subscription) {
                     await savePushSubscription(subscription);
+                    localStorage.setItem(PUSH_PUBLIC_KEY_STORAGE_KEY, publicKey);
                     setPushButtonState('Push testen', { active: true, mode: 'test' });
                     return;
                 }
@@ -1082,6 +1087,7 @@
                 }
 
                 await savePushSubscription(subscription);
+                localStorage.setItem(PUSH_PUBLIC_KEY_STORAGE_KEY, publicKey);
                 setPushButtonState('Push testen', { active: true, mode: 'test' });
                 showAdminFeedback('Push-Benachrichtigungen sind für dieses Gerät aktiv. Du kannst jetzt mit "Push testen" eine Testnachricht senden.', 'success');
             } catch (error) {
@@ -1110,7 +1116,7 @@
                     const warning = data.temporaryKeys
                         ? ' Achtung: In Production fehlen feste VAPID-Keys, nach Neustarts bitte Push neu aktivieren.'
                         : '';
-                    showAdminFeedback(`Test-Push wurde gesendet.${warning}`, data.temporaryKeys ? 'info' : 'success');
+                    showAdminFeedback(`Test-Push wurde an dein iPhone gesendet. Falls kein Banner erscheint, App schließen oder iPhone sperren und erneut testen.${warning}`, data.temporaryKeys ? 'info' : 'success');
                     return;
                 }
 
@@ -1125,6 +1131,17 @@
                     button.dataset.pushMode = 'test';
                 }
             }
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', event => {
+                if (event.data?.type !== 'malibu-push-received') {
+                    return;
+                }
+
+                const title = event.data.payload?.title || 'Push';
+                showAdminFeedback(`${title} wurde vom iPhone empfangen. Wenn kein Banner erscheint, liegt es an iOS Vordergrund/Fokus/Mitteilungs-Einstellungen.`, 'info');
+            });
         }
 
         checkSession();
