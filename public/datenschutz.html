@@ -5,207 +5,390 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Datenschutzerklärung - Malibu SUP Kressbronn</title>
     <style>
+        :root {
+            --ink: #15211e;
+            --muted: #66736e;
+            --line: #ded8ce;
+            --paper: #fffdf8;
+            --surface: #ffffff;
+            --accent: #2f6b5f;
+            --accent-soft: #e2eee9;
+            --sun: #f36b2b;
+            --shadow: 0 18px 42px rgba(20, 30, 27, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
         body {
+            margin: 0;
             font-family: Arial, sans-serif;
-            max-width: 900px;
-            margin: 40px auto;
-            padding: 20px;
-            line-height: 1.6;
-            background: linear-gradient(135deg, #ff6b35 0%, #f7931e 25%, #ff8c42 50%, #ffa07a 75%, #ffb347 100%);
-            min-height: 100vh;
+            color: var(--ink);
+            background: var(--paper);
+            line-height: 1.65;
         }
+
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 32px 18px 48px;
+        }
+
         .container {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            background: var(--surface);
+            border: 1px solid rgba(21, 33, 30, 0.08);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: clamp(22px, 4vw, 44px);
         }
-        h1 {
-            color: #ff6b35;
-            border-bottom: 3px solid #ff6b35;
-            padding-bottom: 10px;
-        }
-        h2 {
-            color: #333;
-            margin-top: 30px;
-        }
-        h3 {
-            color: #555;
-            margin-top: 20px;
-        }
-        a {
-            color: #ff6b35;
+
+        .back-link {
+            display: inline-flex;
+            margin-bottom: 24px;
+            color: var(--accent);
+            font-weight: 800;
             text-decoration: none;
         }
-        a:hover {
+
+        .back-link:hover {
             text-decoration: underline;
         }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #ff6b35;
-            font-weight: bold;
+
+        h1,
+        h2,
+        h3 {
+            line-height: 1.22;
         }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(2rem, 5vw, 3.1rem);
+            color: var(--ink);
+        }
+
+        .intro {
+            max-width: 760px;
+            margin: 0 0 26px;
+            color: var(--muted);
+            font-size: 1.02rem;
+        }
+
+        h2 {
+            margin: 34px 0 12px;
+            padding-top: 22px;
+            border-top: 1px solid var(--line);
+            color: var(--ink);
+            font-size: 1.35rem;
+        }
+
+        h3 {
+            margin: 22px 0 8px;
+            color: var(--accent);
+            font-size: 1.05rem;
+        }
+
+        p {
+            margin: 0 0 12px;
+        }
+
         ul {
-            margin-left: 20px;
+            margin: 0 0 14px 20px;
+            padding: 0;
+        }
+
+        li {
+            margin: 5px 0;
+        }
+
+        a {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .info-box {
+            margin: 18px 0;
+            padding: 14px 16px;
+            border: 1px solid rgba(47, 107, 95, 0.20);
+            border-radius: 8px;
+            background: var(--accent-soft);
+        }
+
+        .muted {
+            color: var(--muted);
+        }
+
+        .stand {
+            margin-top: 30px;
+            font-weight: 800;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <a href="/" class="back-link">← Zurück zur Startseite</a>
-        
-        <h1>Datenschutzerklärung</h1>
+    <main class="page">
+        <div class="container">
+            <a href="/" class="back-link">Zurück zur Startseite</a>
 
-        <h2>1. Verantwortliche Stelle</h2>
-        <p>
-            <strong>Bettina Oelfken</strong><br>
-            Uferweg 2<br>
-            88079 Kressbronn<br>
-            Deutschland
-        </p>
-        <p>
-            <strong>Kontakt:</strong><br>
-            Telefon: <a href="tel:+4915222658679">0152 22 65 8679</a><br>
-            E-Mail: <a href="mailto:malibusupverleih@aol.com">malibusupverleih@aol.com</a><br>
-            Bitte keine Buchungsanfragen per E-Mail.
-        </p>
+            <h1>Datenschutzerklärung</h1>
+            <p class="intro">
+                In dieser Datenschutzerklärung informieren wir darüber, welche personenbezogenen Daten bei der Nutzung
+                der Website, bei Reservierungen, Zahlungen und im Admin-Bereich verarbeitet werden.
+            </p>
 
-        <h2>2. Zwecke, Datenkategorien und Rechtsgrundlagen</h2>
+            <div class="info-box">
+                <strong>Kurz gesagt:</strong> Wir verarbeiten nur die Daten, die für Reservierung, Zahlung, Betrieb und
+                Verwaltung des SUP-Verleihs erforderlich sind. Es werden keine Analyse- oder Marketing-Cookies eingesetzt.
+            </div>
 
-        <h3>2.1 Aufruf der Website</h3>
-        <p>
-            Beim Aufruf dieser Website werden technisch erforderliche Verbindungs- und Serverdaten verarbeitet. Dazu
-            können insbesondere IP-Adresse, Datum und Uhrzeit des Abrufs, aufgerufene URL, Browser-Typ, Betriebssystem,
-            Referrer-URL sowie Protokolldaten zur Fehleranalyse und Systemsicherheit gehören.
-        </p>
-        <p>
-            Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt
-            in der sicheren, stabilen und missbrauchsfreien Bereitstellung der Website.
-        </p>
+            <h2>1. Verantwortlicher</h2>
+            <p>
+                Verantwortlich im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:
+            </p>
+            <p>
+                <strong>Malibu SUP Kressbronn</strong><br>
+                Bettina Oelfken<br>
+                Uferweg 2<br>
+                88079 Kressbronn<br>
+                Deutschland
+            </p>
+            <p>
+                Telefon: <a href="tel:+4915222658679">0152 22 65 8679</a><br>
+                E-Mail: <a href="mailto:malibusupverleih@aol.com">malibusupverleih@aol.com</a><br>
+                Bitte keine Buchungsanfragen per E-Mail.
+            </p>
 
-        <h3>2.2 Buchungsabwicklung</h3>
-        <p>
-            Wenn Sie über das Buchungsformular reservieren, verarbeiten wir insbesondere folgende Daten:
-        </p>
-        <ul>
-            <li>Name</li>
-            <li>Telefonnummer</li>
-            <li>Buchungsdatum, Start- und Endzeit, Board-Kategorie, Anzahl der Boards und Personen pro Board</li>
-            <li>Zahlungsmethode</li>
-            <li>Zahlungsstatus</li>
-            <li>interne Verwaltungsvermerke zur Buchung, soweit erforderlich</li>
-        </ul>
-        <p>
-            Diese Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO zur Durchführung vorvertraglicher
-            Maßnahmen und zur Erfüllung des Mietvertrags. Soweit gesetzliche Aufbewahrungs- oder Nachweispflichten
-            bestehen, erfolgt die Verarbeitung zusätzlich auf Grundlage von Art. 6 Abs. 1 lit. c DSGVO.
-        </p>
+            <h2>2. Allgemeine Hinweise zur Datenverarbeitung</h2>
+            <p>
+                Personenbezogene Daten sind alle Informationen, die sich auf eine identifizierte oder identifizierbare
+                Person beziehen, zum Beispiel Name, Telefonnummer, Zahlungsstatus oder technische Verbindungsdaten.
+            </p>
+            <p>
+                Wir verarbeiten personenbezogene Daten nur, wenn dafür eine Rechtsgrundlage besteht. Relevant sind
+                insbesondere Art. 6 Abs. 1 lit. b DSGVO zur Durchführung vorvertraglicher Maßnahmen und Verträge,
+                Art. 6 Abs. 1 lit. c DSGVO zur Erfüllung gesetzlicher Pflichten, Art. 6 Abs. 1 lit. f DSGVO für
+                berechtigte Interessen sowie Art. 6 Abs. 1 lit. a DSGVO, soweit eine Einwilligung erforderlich ist.
+            </p>
 
-        <h3>2.3 Kontaktaufnahme</h3>
-        <p>
-            Wenn Sie uns telefonisch oder per E-Mail kontaktieren, verarbeiten wir die von Ihnen mitgeteilten Daten,
-            soweit dies zur Bearbeitung Ihrer Anfrage erforderlich ist. Die Verarbeitung erfolgt je nach Anlass auf
-            Grundlage von Art. 6 Abs. 1 lit. b DSGVO oder Art. 6 Abs. 1 lit. f DSGVO.
-        </p>
+            <h2>3. Besuch der Website und Serverprotokolle</h2>
+            <p>
+                Beim Aufruf der Website werden technisch erforderliche Daten verarbeitet. Dazu können insbesondere
+                IP-Adresse, Datum und Uhrzeit des Abrufs, aufgerufene URL, Referrer-URL, Browsertyp, Betriebssystem,
+                HTTP-Statuscode sowie technische Protokolldaten zur Fehleranalyse und Systemsicherheit gehören.
+            </p>
+            <p>
+                Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse liegt in der sicheren,
+                stabilen und missbrauchsfreien Bereitstellung der Website.
+            </p>
 
-        <h3>2.4 Admin-Bereich und Zugriffsschutz</h3>
-        <p>
-            Für den passwortgeschützten Admin-Bereich setzen wir ein technisch erforderliches Session-Cookie
-            <strong>admin_session</strong>. Dieses Cookie dient ausschließlich der Authentifizierung angemeldeter
-            Administratoren und der Absicherung des Verwaltungsbereichs. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO.
-            Unser berechtigtes Interesse liegt im Schutz der Buchungsdaten und in der sicheren Administration der Website.
-        </p>
+            <h2>4. Buchungen und Reservierungen</h2>
+            <p>
+                Wenn Sie über das Buchungsformular eine Reservierung vornehmen, verarbeiten wir die für die
+                Reservierung und Vertragsdurchführung erforderlichen Daten:
+            </p>
+            <ul>
+                <li>Name und Telefonnummer</li>
+                <li>Buchungsdatum, Startzeit, Endzeit und Dauer</li>
+                <li>Board-Kategorie, Anzahl der Boards und Personen pro Board</li>
+                <li>Preis, Zahlungsart und Zahlungsstatus</li>
+                <li>technische Buchungs-ID, Erstellungszeitpunkt und interne Verwaltungsnotizen</li>
+            </ul>
+            <p>
+                Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. b DSGVO, weil sie für die Reservierung,
+                Durchführung und Abwicklung des Mietvertrags erforderlich ist. Soweit Buchungs- oder Zahlungsdaten für
+                steuerliche, handelsrechtliche oder sonstige gesetzliche Pflichten benötigt werden, erfolgt die
+                Verarbeitung zusätzlich auf Grundlage von Art. 6 Abs. 1 lit. c DSGVO.
+            </p>
 
-        <h2>3. Zahlungen über Stripe</h2>
-        <p>
-            Für die Online-Zahlung nutzen wir Stripe. Nach der Buchung werden Sie zur Zahlungsseite von Stripe
-            weitergeleitet. Die eigentliche Zahlungsabwicklung erfolgt unmittelbar über Stripe. Ab diesem Zeitpunkt
-            verarbeitet Stripe personenbezogene Daten in eigener datenschutzrechtlicher Verantwortung.
-        </p>
-        <p>
-            Die für Ihre Daten verantwortliche Stripe-Gesellschaft hängt unter anderem vom Standort und dem genutzten
-            Stripe-Dienst ab. Für Nutzer im Europäischen Wirtschaftsraum nennt Stripe insbesondere irische
-            Stripe-Gesellschaften als beteiligte Stellen. Weitere Informationen finden Sie im Stripe Privacy Center:
-            <a href="https://stripe.com/legal/privacy-center" target="_blank" rel="noopener noreferrer">https://stripe.com/legal/privacy-center</a>
-        </p>
+            <h2>5. Online-Zahlungen über Stripe</h2>
+            <p>
+                Für Online-Zahlungen nutzen wir Stripe. Nach dem Absenden der Reservierung werden Sie zu einer von
+                Stripe bereitgestellten Zahlungsseite weitergeleitet. Dort können je nach Verfügbarkeit und
+                Stripe-Einstellungen insbesondere Kartenzahlung, PayPal und SEPA-Lastschrift angeboten werden.
+            </p>
+            <p>
+                Wir übermitteln an Stripe die für die Zahlung erforderlichen Transaktionsdaten, insbesondere Betrag,
+                Währung, Buchungs-ID, Buchungsname, Buchungszeitraum und eine Beschreibung der Reservierung. Die
+                eigentlichen Zahlungsdaten, etwa Karten- oder Kontodaten, werden direkt von Stripe verarbeitet und nicht
+                von uns gespeichert.
+            </p>
+            <p>
+                Stripe informiert uns über den Zahlungsstatus, zum Beispiel ob eine Zahlung erfolgreich, offen,
+                abgebrochen, fehlgeschlagen oder bei SEPA-Lastschrift noch in Verarbeitung ist. Hierfür nutzen wir
+                Stripe-Checkout-Sessions, Stripe-API-Abfragen und Stripe-Webhooks. Diese Verarbeitung ist erforderlich,
+                um Reservierungen automatisch als bezahlt zu markieren und Buchungen korrekt zu verwalten.
+            </p>
+            <p>
+                Stripe kann je nach gewählter Zahlungsart weitere Zahlungsdienstleister, Kartenanbieter, Banken oder
+                Wallet-Anbieter wie PayPal einbinden. Weitere Informationen zur Datenverarbeitung durch Stripe finden
+                Sie im Stripe Privacy Center:
+                <a href="https://stripe.com/legal/privacy-center" target="_blank" rel="noopener noreferrer">https://stripe.com/legal/privacy-center</a>.
+            </p>
+            <p>
+                Rechtsgrundlagen sind Art. 6 Abs. 1 lit. b DSGVO für die Zahlungsabwicklung, Art. 6 Abs. 1 lit. c DSGVO
+                für gesetzliche Nachweis- und Aufbewahrungspflichten sowie Art. 6 Abs. 1 lit. f DSGVO für unser
+                berechtigtes Interesse an einer sicheren, automatisierten und nachvollziehbaren Zahlungsverwaltung.
+            </p>
 
-        <h2>4. Empfänger und Kategorien von Empfängern</h2>
-        <p>Eine Weitergabe personenbezogener Daten erfolgt nur, soweit dies für den Betrieb und die Vertragsabwicklung erforderlich ist.</p>
-        <ul>
-            <li><strong>Hosting und technische Infrastruktur:</strong> Railway bzw. eingesetzte technische Dienstleister für Hosting, Datenbankbetrieb und Bereitstellung der Anwendung</li>
-            <li><strong>Zahlungsdienstleister:</strong> Stripe für die Online-Zahlungsabwicklung</li>
-            <li><strong>Behörden oder sonstige Stellen:</strong> wenn wir hierzu gesetzlich verpflichtet sind</li>
-        </ul>
+            <h2>6. Erfolgsseite, Kalenderdatei und Teilen-Funktionen</h2>
+            <p>
+                Nach erfolgreicher oder eingereichter Zahlung zeigen wir eine Zusammenfassung der Reservierung an. Die
+                Kalenderdatei wird lokal im Browser erzeugt, wenn Sie auf "Zum Kalender hinzufügen" klicken.
+            </p>
+            <p>
+                Wenn Sie die Teilen- oder WhatsApp-Funktion nutzen, wird der vorbereitete Buchungstext erst durch Ihre
+                aktive Auswahl an die jeweilige App oder Plattform übergeben. Ohne Anklicken dieser Funktionen erfolgt
+                keine Übermittlung an WhatsApp, Meta oder andere externe Kommunikationsdienste durch uns.
+            </p>
 
-        <h2>5. Drittlandübermittlungen</h2>
-        <p>
-            Soweit technische Dienstleister oder Zahlungsdienstleister Daten außerhalb der EU oder des EWR verarbeiten,
-            erfolgt dies nur im Rahmen der datenschutzrechtlichen Voraussetzungen. Soweit erforderlich, erfolgt eine
-            solche Verarbeitung auf Grundlage eines Angemessenheitsbeschlusses oder geeigneter Garantien, insbesondere
-            Standardvertragsklauseln des EU-Rechts.
-        </p>
+            <h2>7. Kontaktaufnahme</h2>
+            <p>
+                Wenn Sie uns telefonisch oder per E-Mail kontaktieren, verarbeiten wir die von Ihnen mitgeteilten Daten,
+                soweit dies zur Bearbeitung Ihrer Anfrage erforderlich ist. Rechtsgrundlage ist je nach Inhalt der
+                Anfrage Art. 6 Abs. 1 lit. b DSGVO oder Art. 6 Abs. 1 lit. f DSGVO.
+            </p>
 
-        <h2>6. Speicherdauer</h2>
-        <ul>
-            <li><strong>Server- und Sicherheitsprotokolle:</strong> nur so lange, wie dies für den sicheren Betrieb, die Fehleranalyse und die Abwehr von Missbrauch erforderlich ist</li>
-            <li><strong>Buchungsdaten:</strong> grundsätzlich für die Vertragsabwicklung und darüber hinaus nur im Rahmen gesetzlicher Aufbewahrungspflichten</li>
-            <li><strong>Geschäfts- und steuerrechtlich relevante Unterlagen:</strong> nach den gesetzlichen Vorgaben regelmäßig 6 bis 8 Jahre, in Einzelfällen auch länger, wenn gesetzliche Nachweis- oder Verjährungsfristen dies erfordern</li>
-            <li><strong>Admin-Session-Cookie:</strong> bis zum Logout oder spätestens nach 24 Stunden</li>
-        </ul>
+            <h2>8. Admin-Bereich, Session-Cookie und Push-Benachrichtigungen</h2>
+            <p>
+                Der Admin-Bereich ist passwortgeschützt. Für angemeldete Administratoren setzen wir ein technisch
+                erforderliches Session-Cookie mit dem Namen <strong>admin_session</strong>. Dieses Cookie dient der
+                Authentifizierung und dem Schutz der Buchungsdaten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO.
+            </p>
+            <p>
+                Im Admin-Bereich können Push-Benachrichtigungen für Testnachrichten und für fällige Buchungen zum
+                Buchungsbeginn aktiviert werden. Bei Aktivierung werden technische Push-Subscription-Daten verarbeitet,
+                insbesondere Endpoint, öffentlicher Schlüssel und Authentifizierungsdaten der Push-Subscription. Diese
+                Daten dienen ausschließlich dem Versand von Admin-Benachrichtigungen an das aktivierte Gerät.
+                Rechtsgrundlage ist Art. 6 Abs. 1 lit. a DSGVO, soweit die Benachrichtigung durch eine
+                Browser-/Geräteabfrage erlaubt wird, sowie Art. 6 Abs. 1 lit. f DSGVO für die effiziente Verwaltung der
+                Buchungen.
+            </p>
 
-        <h2>7. Pflicht zur Bereitstellung der Daten</h2>
-        <p>
-            Die Bereitstellung der im Buchungsformular abgefragten Daten ist für den Abschluss und die Durchführung der
-            Buchung erforderlich. Ohne diese Angaben kann keine Reservierung durchgeführt werden.
-        </p>
+            <h2>9. Cookies, lokale Speicherung und vergleichbare Technologien</h2>
+            <p>
+                Die öffentliche Reservierungsseite setzt nach aktuellem Stand keine Analyse-, Marketing- oder
+                Werbe-Cookies ein. Technisch erforderliche Speicherungen können eingesetzt werden, soweit dies für den
+                vom Nutzer angeforderten Dienst erforderlich ist, zum Beispiel für Admin-Login, Admin-Push-Funktionen
+                oder sicherheitsrelevante Funktionen. Rechtsgrundlagen sind Art. 6 Abs. 1 lit. f DSGVO und, soweit
+                einschlägig, § 25 Abs. 2 TDDDG.
+            </p>
+            <p>
+                Auf der Zahlungsseite von Stripe können Stripe und beteiligte Zahlungsdienstleister eigene Cookies oder
+                vergleichbare Technologien einsetzen. Darauf haben wir keinen unmittelbaren Einfluss; es gelten die
+                Hinweise der jeweiligen Anbieter.
+            </p>
 
-        <h2>8. Keine automatisierte Entscheidungsfindung</h2>
-        <p>
-            Eine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne von Art. 22 DSGVO findet nicht statt.
-        </p>
+            <h2>10. Hosting, Datenbank und technische Dienstleister</h2>
+            <p>
+                Die Anwendung wird bei Railway bzw. eingesetzten technischen Dienstleistern betrieben. Dabei können
+                Website-, Datenbank-, Server- und Protokolldaten verarbeitet werden. Railway verarbeitet Daten in diesem
+                Zusammenhang als technischer Dienstleister bzw. Auftragsverarbeiter, soweit es um den Betrieb der
+                Anwendung und Datenbank geht. Weitere Informationen stellt Railway unter anderem in seinem Data
+                Processing Addendum bereit:
+                <a href="https://railway.com/legal/dpa" target="_blank" rel="noopener noreferrer">https://railway.com/legal/dpa</a>.
+            </p>
+            <p>
+                Rechtsgrundlage für den Einsatz technischer Dienstleister ist Art. 6 Abs. 1 lit. f DSGVO. Unser
+                berechtigtes Interesse liegt im sicheren, skalierbaren und zuverlässigen Betrieb der Website.
+            </p>
 
-        <h2>9. Ihre Rechte</h2>
-        <p>Sie haben im Rahmen der gesetzlichen Voraussetzungen insbesondere folgende Rechte:</p>
-        <ul>
-            <li>Auskunft nach Art. 15 DSGVO</li>
-            <li>Berichtigung nach Art. 16 DSGVO</li>
-            <li>Löschung nach Art. 17 DSGVO</li>
-            <li>Einschränkung der Verarbeitung nach Art. 18 DSGVO</li>
-            <li>Datenübertragbarkeit nach Art. 20 DSGVO</li>
-            <li>Widerspruch gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO nach Art. 21 DSGVO</li>
-        </ul>
-        <p>
-            Zur Ausübung Ihrer Rechte genügt eine formlose Mitteilung an die oben genannten Kontaktdaten.
-        </p>
+            <h2>11. Empfänger personenbezogener Daten</h2>
+            <p>
+                Personenbezogene Daten werden nur weitergegeben, soweit dies für Betrieb, Buchung, Zahlung oder
+                gesetzliche Pflichten erforderlich ist. Empfänger können insbesondere sein:
+            </p>
+            <ul>
+                <li>Hosting- und Infrastruktur-Dienstleister, insbesondere Railway</li>
+                <li>Zahlungsdienstleister, insbesondere Stripe sowie je nach Zahlungsart PayPal, Banken, Kartenanbieter oder Wallet-Anbieter</li>
+                <li>Kommunikationsdienste, wenn Sie uns kontaktieren oder Teilen-Funktionen aktiv nutzen</li>
+                <li>Steuerliche oder rechtliche Berater, soweit erforderlich</li>
+                <li>Behörden, Gerichte oder sonstige Stellen, soweit wir gesetzlich dazu verpflichtet sind</li>
+            </ul>
 
-        <h2>10. Beschwerderecht bei einer Aufsichtsbehörde</h2>
-        <p>
-            Sie haben nach Art. 77 DSGVO das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren.
-            Zuständig in Baden-Württemberg ist insbesondere:
-        </p>
-        <p>
-            <strong>Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit Baden-Württemberg</strong><br>
-            Heilbronner Straße 35<br>
-            70191 Stuttgart<br>
-            Telefon: 0711 615541-0<br>
-            E-Mail: poststelle@lfdi.bwl.de<br>
-            Website: <a href="https://www.baden-wuerttemberg.datenschutz.de/" target="_blank" rel="noopener noreferrer">https://www.baden-wuerttemberg.datenschutz.de/</a>
-        </p>
+            <h2>12. Drittlandübermittlungen</h2>
+            <p>
+                Bei der Nutzung von Stripe, Railway und weiteren technischen Dienstleistern kann eine Verarbeitung von
+                Daten außerhalb der Europäischen Union bzw. des Europäischen Wirtschaftsraums nicht ausgeschlossen
+                werden. Soweit dies erfolgt, geschieht dies nur im Rahmen der datenschutzrechtlichen Voraussetzungen,
+                etwa auf Grundlage eines Angemessenheitsbeschlusses, EU-Standardvertragsklauseln oder anderer geeigneter
+                Garantien im Sinne der Art. 44 ff. DSGVO.
+            </p>
 
-        <h2>11. Keine Analyse- oder Marketingtools</h2>
-        <p>
-            Diese Website verwendet nach aktuellem Stand keine Analyse-, Tracking- oder Marketingtools.
-            Es werden insbesondere keine Reichweitenmessung, keine Profilbildung und keine Werbe-Cookies eingesetzt.
-        </p>
+            <h2>13. Speicherdauer</h2>
+            <p>
+                Wir speichern personenbezogene Daten nur so lange, wie es für die jeweiligen Zwecke erforderlich ist
+                oder gesetzliche Pflichten dies verlangen.
+            </p>
+            <ul>
+                <li><strong>Server- und Sicherheitsprotokolle:</strong> nur so lange, wie dies für Betrieb, Sicherheit, Fehleranalyse und Missbrauchsabwehr erforderlich ist.</li>
+                <li><strong>Buchungsdaten:</strong> für die Vertragsabwicklung und anschließend im Rahmen gesetzlicher Aufbewahrungs- und Verjährungsfristen.</li>
+                <li><strong>Zahlungs- und buchhaltungsrelevante Daten:</strong> regelmäßig bis zu 10 Jahre, soweit steuer- oder handelsrechtliche Pflichten bestehen.</li>
+                <li><strong>Admin-Session-Cookie:</strong> bis zum Logout oder Ablauf der Session, nach aktueller technischer Konfiguration spätestens nach 24 Stunden.</li>
+                <li><strong>Push-Subscriptions:</strong> bis zur Deaktivierung, technischen Ungültigkeit oder Löschung der Subscription.</li>
+                <li><strong>Kontaktanfragen:</strong> so lange, wie dies für Bearbeitung, Nachweis und etwaige Anschlussfragen erforderlich ist.</li>
+            </ul>
 
-        <h2>12. Aktualität dieser Datenschutzerklärung</h2>
-        <p>
-            Diese Datenschutzerklärung wird angepasst, wenn dies aufgrund rechtlicher, technischer oder organisatorischer
-            Änderungen erforderlich ist.
-        </p>
+            <h2>14. Pflicht zur Bereitstellung von Daten</h2>
+            <p>
+                Die Angaben im Buchungsformular sind erforderlich, um eine Reservierung anzulegen und abzuwickeln. Ohne
+                diese Angaben können wir keine Online-Reservierung durchführen. Zahlungsdaten sind erforderlich, wenn
+                Sie die Online-Zahlung nutzen.
+            </p>
 
-        <p><strong>Stand:</strong> April 2026</p>
-    </div>
+            <h2>15. Automatisierte Entscheidungen</h2>
+            <p>
+                Eine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne von Art. 22 DSGVO findet
+                durch uns nicht statt.
+            </p>
+
+            <h2>16. Ihre Rechte</h2>
+            <p>
+                Sie haben im Rahmen der gesetzlichen Voraussetzungen insbesondere folgende Rechte:
+            </p>
+            <ul>
+                <li>Auskunft nach Art. 15 DSGVO</li>
+                <li>Berichtigung nach Art. 16 DSGVO</li>
+                <li>Löschung nach Art. 17 DSGVO</li>
+                <li>Einschränkung der Verarbeitung nach Art. 18 DSGVO</li>
+                <li>Datenübertragbarkeit nach Art. 20 DSGVO</li>
+                <li>Widerspruch gegen Verarbeitungen auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO nach Art. 21 DSGVO</li>
+                <li>Widerruf erteilter Einwilligungen mit Wirkung für die Zukunft nach Art. 7 Abs. 3 DSGVO</li>
+            </ul>
+            <p>
+                Zur Ausübung Ihrer Rechte genügt eine formlose Mitteilung an die oben genannten Kontaktdaten.
+            </p>
+
+            <h2>17. Beschwerderecht bei einer Aufsichtsbehörde</h2>
+            <p>
+                Sie haben nach Art. 77 DSGVO das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren.
+                Zuständig in Baden-Württemberg ist insbesondere:
+            </p>
+            <p>
+                <strong>Der Landesbeauftragte für den Datenschutz und die Informationsfreiheit Baden-Württemberg</strong><br>
+                Heilbronner Straße 35<br>
+                70191 Stuttgart<br>
+                Telefon: <a href="tel:+497116155410">0711 615541-0</a><br>
+                E-Mail: <a href="mailto:poststelle@lfdi.bwl.de">poststelle@lfdi.bwl.de</a><br>
+                Website: <a href="https://www.baden-wuerttemberg.datenschutz.de/" target="_blank" rel="noopener noreferrer">https://www.baden-wuerttemberg.datenschutz.de/</a>
+            </p>
+
+            <h2>18. Keine Analyse- oder Marketingtools</h2>
+            <p>
+                Diese Website verwendet nach aktuellem Stand keine Analyse-, Tracking- oder Marketingtools. Es werden
+                insbesondere keine Reichweitenmessung, keine Profilbildung und keine Werbe-Cookies durch uns eingesetzt.
+            </p>
+
+            <h2>19. Aktualisierung dieser Datenschutzerklärung</h2>
+            <p>
+                Diese Datenschutzerklärung kann angepasst werden, wenn sich rechtliche, technische oder organisatorische
+                Anforderungen ändern, insbesondere bei neuen Zahlungsarten, Dienstleistern oder Funktionen der Website.
+            </p>
+
+            <p class="stand">Stand: Juli 2026</p>
+            <p class="muted">
+                Hinweis: Diese Datenschutzerklärung dient der transparenten Information. Sie ersetzt keine individuelle
+                Rechtsberatung.
+            </p>
+        </div>
+    </main>
 </body>
 </html>
