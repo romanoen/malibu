@@ -1,14 +1,14 @@
 # Malibu SUP Kressbronn
 
-Mobile-first booking portal for SUP rentals with PayPal and cash payment workflows, an admin dashboard, and PostgreSQL support for production hosting.
+Mobile-first booking portal for SUP rentals with Stripe Checkout, an admin dashboard, and PostgreSQL support for production hosting.
 
 ## Features
 
 - Public booking form with 15-minute time slots from 8:00 to 20:00
 - Server-side booking validation and price calculation
-- PayPal.me payment link support
-- Cash payment flow with manual admin confirmation
-- Admin dashboard with booking groups, notes, payment verification, and revenue stats
+- Stripe Checkout payment flow
+- Automatic Stripe payment confirmation through webhooks and admin sync
+- Admin dashboard with booking groups, notes, payment status, and revenue stats
 - Local JSON storage for development
 - PostgreSQL storage when `DATABASE_URL` is configured
 
@@ -44,8 +44,10 @@ npm run dev
 Create `.env` from `.env.example` and set at least:
 
 ```bash
-PAYPAL_LINK=https://paypal.me/KlausOelfken
 ADMIN_PASSWORD=dein_sicheres_passwort
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+PUBLIC_BASE_URL=http://localhost:3000
 ```
 
 Optional:
@@ -53,6 +55,7 @@ Optional:
 - `PORT=3000`
 - `DATABASE_URL=postgres://...`
 - `NODE_ENV=production`
+- `PUBLIC_BASE_URL=https://deine-domain.example`
 
 In production, `ADMIN_PASSWORD` must be configured or admin login is disabled.
 
@@ -78,8 +81,10 @@ Railway and Render are both supported. See `HOSTING_GUIDE.md` and `RAILWAY_SETUP
 
 Minimum production variables:
 
-- `PAYPAL_LINK`
 - `ADMIN_PASSWORD`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `PUBLIC_BASE_URL`
 - `DATABASE_URL`
 - `NODE_ENV=production`
 

@@ -173,7 +173,7 @@ test('admin can delete a booking through the protected admin API', async () => {
       numberOfBoards: 2,
       startTime: '2026-04-25T10:00:00',
       endTime: '2026-04-25T11:30:00',
-      paymentMethod: 'paypal'
+      paymentMethod: 'cash'
     })
   });
 

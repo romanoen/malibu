@@ -19,10 +19,18 @@
 
 ### 4. Environment-Variablen setzen
 Im Railway-Dashboard → Variables:
-- `PAYPAL_LINK=https://paypal.me/KlausOelfken`
 - `ADMIN_PASSWORD=dein_sicheres_passwort`
+- `STRIPE_SECRET_KEY=sk_live_...`
+- `STRIPE_WEBHOOK_SECRET=whsec_...`
+- `PUBLIC_BASE_URL=https://deine-production-domain`
 - `NODE_ENV=production`
 - `DATABASE_URL` ist bereits gesetzt (automatisch von Railway)
+
+In Stripe muss ein Webhook auf `https://deine-production-domain/api/stripe/webhook` zeigen. Für den Zahlungsstatus werden mindestens diese Events benötigt:
+- `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
+- `checkout.session.expired`
 
 ### 5. Code anpassen für PostgreSQL
 Der Code muss angepasst werden, um PostgreSQL statt JSON zu nutzen.

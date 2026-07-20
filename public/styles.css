@@ -567,8 +567,28 @@ select {
     background: #f4fbfc;
 }
 
+.payment-summary {
+    display: grid;
+    gap: 5px;
+    padding: 13px 14px;
+    border: 1.5px solid rgba(8, 127, 140, 0.18);
+    border-radius: var(--radius);
+    background: #f4fbfc;
+    color: var(--ink);
+}
+
+.payment-summary strong {
+    font-weight: 900;
+}
+
+.payment-summary span {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
 .submit-btn,
-.paypal-button {
+.stripe-button {
     min-height: 54px;
     display: inline-flex;
     align-items: center;
@@ -588,13 +608,13 @@ select {
 }
 
 .submit-btn:hover,
-.paypal-button:hover {
+.stripe-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 14px 28px rgba(243, 107, 43, 0.26);
 }
 
 .submit-btn:active,
-.paypal-button:active {
+.stripe-button:active {
     transform: translateY(0);
 }
 
@@ -736,10 +756,14 @@ select {
     font-weight: 850;
 }
 
-.paypal-button {
+.stripe-button {
     margin-top: 8px;
-    background: #0070ba;
-    box-shadow: 0 12px 24px rgba(0, 112, 186, 0.22);
+    background: #635bff;
+    box-shadow: 0 12px 24px rgba(99, 91, 255, 0.22);
+}
+
+.stripe-button:hover {
+    box-shadow: 0 14px 28px rgba(99, 91, 255, 0.26);
 }
 
 .hidden {

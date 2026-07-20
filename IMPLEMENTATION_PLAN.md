@@ -38,8 +38,10 @@
 2. GitHub-Repository verbinden
 3. PostgreSQL-Datenbank hinzufügen
 4. Environment-Variablen setzen:
-   - `PAYPAL_LINK=https://paypal.me/KlausOelfken`
    - `ADMIN_PASSWORD=dein_sicheres_passwort`
+   - `STRIPE_SECRET_KEY=sk_live_...`
+   - `STRIPE_WEBHOOK_SECRET=whsec_...`
+   - `PUBLIC_BASE_URL=https://deine-production-domain`
    - `DATABASE_URL` (automatisch von Railway)
 5. Deploy!
 
@@ -57,8 +59,10 @@
 Erstelle `.env.production` oder setze in Railway/Render:
 
 ```
-PAYPAL_LINK=https://paypal.me/KlausOelfken
 ADMIN_PASSWORD=dein_sicheres_passwort_123
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+PUBLIC_BASE_URL=https://deine-production-domain
 PORT=3000
 NODE_ENV=production
 ```

@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const Stripe = require('stripe');
 const webpush = require('web-push');
 const db = require('./database/db');
 const {
@@ -28,6 +29,9 @@ const PORT = process.env.PORT || 3000;
 const CHECKIN_NOTIFICATION_POLL_MS = Number.parseInt(process.env.CHECKIN_NOTIFICATION_POLL_MS || '15000', 10);
 const CHECKIN_NOTIFICATION_GRACE_MS = (Number.parseInt(process.env.CHECKIN_NOTIFICATION_GRACE_MINUTES || '15', 10)) * 60 * 1000;
 const BOOKING_TIME_ZONE = process.env.BOOKING_TIME_ZONE || 'Europe/Berlin';
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 const configuredVapidKeys = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
   ? {
       publicKey: process.env.VAPID_PUBLIC_KEY,
@@ -49,6 +53,7 @@ if (!configuredVapidKeys && process.env.NODE_ENV !== 'test') {
 
 // Middleware
 app.use(cors());
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), handleStripeWebhook);
 app.use(express.json({ limit: '20kb' }));
 app.use(express.static('public'));
 
@@ -356,7 +361,213 @@ async function sendPushPayload(payload) {
 }
 
 function getPaymentLabel(paymentMethod) {
+  if (paymentMethod === 'stripe') {
+    return 'Stripe';
+  }
+
   return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+}
+
+function getRequestOrigin(req) {
+  const configuredBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
+  const origin = configuredBaseUrl || `${req.protocol}://${req.get('host')}`;
+  return origin.replace(/\/+$/, '');
+}
+
+function toStripeAmount(amount) {
+  const cents = Math.round(Number.parseFloat(amount || 0) * 100);
+  if (!Number.isInteger(cents) || cents < 50) {
+    throw new Error('Invalid Stripe amount');
+  }
+
+  return cents;
+}
+
+function getStripeSessionBookingId(session = {}) {
+  return session.client_reference_id || session.metadata?.bookingId || null;
+}
+
+function getStripePaymentIntentId(session = {}) {
+  const paymentIntent = session.payment_intent;
+  if (!paymentIntent) {
+    return null;
+  }
+
+  return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id || null;
+}
+
+function getStripePublicBooking(booking = {}) {
+  return {
+    id: booking.id,
+    name: booking.name,
+    phone: booking.phone,
+    boardItems: booking.boardItems,
+    boardType: booking.boardType,
+    peoplePerBoard: booking.peoplePerBoard,
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    duration: booking.duration,
+    price: booking.price,
+    paymentMethod: booking.paymentMethod,
+    status: booking.status,
+    paymentVerified: Boolean(booking.paymentVerified),
+    verifiedAt: booking.verifiedAt || null,
+    stripePaymentStatus: booking.stripePaymentStatus || null
+  };
+}
+
+async function applyStripeSessionToBooking(session = {}, options = {}) {
+  const bookingId = getStripeSessionBookingId(session);
+  if (!bookingId) {
+    return null;
+  }
+
+  const paymentStatus = session.payment_status || 'unpaid';
+  const isPaid = paymentStatus === 'paid' || paymentStatus === 'no_payment_required';
+  const now = new Date().toISOString();
+  const updates = {
+    stripeCheckoutSessionId: session.id || null,
+    stripePaymentIntentId: getStripePaymentIntentId(session),
+    stripePaymentStatus: paymentStatus,
+    stripeSyncedAt: now
+  };
+
+  if (isPaid) {
+    updates.status = 'confirmed';
+    updates.paymentVerified = true;
+    updates.verifiedAt = now;
+  } else if (options.paymentFailed || session.status === 'expired') {
+    updates.status = 'payment_failed';
+  }
+
+  await db.updateBooking(bookingId, updates);
+  return db.findBookingById(bookingId);
+}
+
+async function createStripeCheckoutSession(req, booking) {
+  if (!stripe) {
+    const error = new Error('Stripe ist noch nicht konfiguriert.');
+    error.statusCode = 503;
+    throw error;
+  }
+
+  const origin = getRequestOrigin(req);
+  const amountInCents = toStripeAmount(booking.price);
+  const timeRange = `${formatBookingShortDate(booking.startTime)}, ${formatBookingClockTime(booking.startTime)}-${formatBookingClockTime(booking.endTime)} Uhr`;
+  const boardSummary = formatBoardItems(booking);
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    locale: 'de',
+    submit_type: 'pay',
+    success_url: `${origin}/?stripe_session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/?payment_cancelled=1&booking_id=${encodeURIComponent(booking.id)}`,
+    client_reference_id: booking.id,
+    metadata: {
+      bookingId: booking.id,
+      bookingName: booking.name,
+      bookingStartTime: booking.startTime
+    },
+    payment_intent_data: {
+      metadata: {
+        bookingId: booking.id,
+        bookingName: booking.name,
+        bookingStartTime: booking.startTime
+      }
+    },
+    line_items: [{
+      quantity: 1,
+      price_data: {
+        currency: 'eur',
+        unit_amount: amountInCents,
+        product_data: {
+          name: 'SUP Reservierung',
+          description: `${timeRange} · ${boardSummary}`
+        }
+      }
+    }]
+  });
+
+  if (!session.url) {
+    throw new Error('Stripe Checkout konnte nicht gestartet werden.');
+  }
+
+  return session;
+}
+
+async function syncStripePaymentForBooking(booking = {}) {
+  if (!stripe || booking.paymentMethod !== 'stripe' || booking.paymentVerified || !booking.stripeCheckoutSessionId) {
+    return booking;
+  }
+
+  const session = await stripe.checkout.sessions.retrieve(booking.stripeCheckoutSessionId);
+  return applyStripeSessionToBooking(session);
+}
+
+async function syncStripePaymentsForPendingBookings(bookings = []) {
+  if (!stripe) {
+    return bookings;
+  }
+
+  const stripePendingBookings = bookings.filter(booking => (
+    booking.paymentMethod === 'stripe' &&
+    !booking.paymentVerified &&
+    booking.stripeCheckoutSessionId
+  ));
+
+  if (stripePendingBookings.length === 0) {
+    return bookings;
+  }
+
+  let syncedAnyBooking = false;
+  for (const booking of stripePendingBookings) {
+    try {
+      const syncedBooking = await syncStripePaymentForBooking(booking);
+      syncedAnyBooking = syncedAnyBooking || Boolean(syncedBooking);
+    } catch (error) {
+      console.error('Stripe payment sync failed:', {
+        bookingId: booking.id,
+        message: error.message
+      });
+    }
+  }
+
+  return syncedAnyBooking ? db.readBookings() : bookings;
+}
+
+async function handleStripeWebhook(req, res) {
+  if (!stripe || !stripeWebhookSecret) {
+    return res.status(503).json({ error: 'Stripe Webhook ist nicht konfiguriert' });
+  }
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      req.headers['stripe-signature'],
+      stripeWebhookSecret
+    );
+  } catch (error) {
+    console.error('Stripe webhook signature verification failed:', error.message);
+    return res.status(400).send(`Webhook Error: ${error.message}`);
+  }
+
+  try {
+    if ([
+      'checkout.session.completed',
+      'checkout.session.async_payment_succeeded',
+      'checkout.session.async_payment_failed',
+      'checkout.session.expired'
+    ].includes(event.type)) {
+      await applyStripeSessionToBooking(event.data.object, {
+        paymentFailed: event.type === 'checkout.session.async_payment_failed'
+      });
+    }
+
+    res.json({ received: true });
+  } catch (error) {
+    console.error('Stripe webhook handling failed:', error);
+    res.status(500).json({ error: 'Stripe Webhook konnte nicht verarbeitet werden' });
+  }
 }
 
 function isCheckinNotificationDue(booking = {}, nowMs = Date.now()) {
@@ -661,7 +872,8 @@ app.post('/api/bookings', async (req, res) => {
       pricePerBoard: priceResult.pricePerBoard,
       isDayRate: priceResult.isDayRate,
       paymentMethod,
-      status: paymentMethod === 'cash' ? 'pending' : (paymentMethod === 'paypal' ? 'payment_pending' : 'pending'),
+      status: paymentMethod === 'cash' ? 'pending' : 'payment_pending',
+      paymentVerified: false,
       createdAt: new Date().toISOString()
     };
     
@@ -676,6 +888,15 @@ app.post('/api/bookings', async (req, res) => {
       booking.paypalLink = paypalLink;
       booking.paypalAmount = price;
       booking.paymentVerified = false;
+    }
+
+    if (paymentMethod === 'stripe') {
+      const stripeSession = await createStripeCheckoutSession(req, booking);
+      booking.stripeCheckoutSessionId = stripeSession.id;
+      booking.stripePaymentIntentId = getStripePaymentIntentId(stripeSession);
+      booking.stripePaymentStatus = stripeSession.payment_status || 'unpaid';
+      booking.stripeSyncedAt = new Date().toISOString();
+      booking.stripeCheckoutUrl = stripeSession.url;
     }
     
     // Save booking
@@ -694,19 +915,66 @@ app.post('/api/bookings', async (req, res) => {
         status: booking.status,
         paypalLink: booking.paypalLink,
         paypalAmount: booking.paypalAmount,
-        paymentVerified: booking.paymentVerified || false
+        paymentVerified: booking.paymentVerified || false,
+        stripeCheckoutSessionId: booking.stripeCheckoutSessionId || null,
+        stripePaymentStatus: booking.stripePaymentStatus || null,
+        stripeCheckoutUrl: booking.stripeCheckoutUrl || null
       }
     });
   } catch (error) {
     console.error('Booking error:', error);
-    res.status(500).json({ error: 'Failed to create booking', details: error.message });
+    const statusCode = error.statusCode || 500;
+    const errorMessage = statusCode === 503
+      ? error.message
+      : 'Failed to create booking';
+    res.status(statusCode).json({ error: errorMessage, details: error.message });
+  }
+});
+
+app.get('/api/stripe/checkout-session/:sessionId', async (req, res) => {
+  try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe ist noch nicht konfiguriert.' });
+    }
+
+    const sessionId = String(req.params.sessionId || '').trim();
+    if (!sessionId.startsWith('cs_')) {
+      return res.status(400).json({ error: 'Ungültige Stripe-Session.' });
+    }
+
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const bookingId = getStripeSessionBookingId(session);
+    if (!bookingId) {
+      return res.status(404).json({ error: 'Buchung zur Stripe-Zahlung nicht gefunden.' });
+    }
+
+    let booking = await applyStripeSessionToBooking(session);
+    if (!booking) {
+      booking = await db.findBookingById(bookingId);
+    }
+
+    if (!booking || booking.stripeCheckoutSessionId !== session.id) {
+      return res.status(404).json({ error: 'Buchung zur Stripe-Zahlung nicht gefunden.' });
+    }
+
+    res.json({
+      success: true,
+      paymentStatus: session.payment_status || 'unpaid',
+      checkoutStatus: session.status || null,
+      checkoutUrl: session.url || null,
+      booking: getStripePublicBooking(booking)
+    });
+  } catch (error) {
+    console.error('Error fetching Stripe checkout session:', error);
+    res.status(500).json({ error: 'Stripe-Zahlung konnte nicht geprüft werden' });
   }
 });
 
 // Keep customer data behind admin auth; POST /api/bookings remains public.
 app.get('/api/bookings', checkAdminSession, async (req, res) => {
   try {
-    const bookings = await db.readBookings();
+    let bookings = await db.readBookings();
+    bookings = await syncStripePaymentsForPendingBookings(bookings);
     res.json(bookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
@@ -717,7 +985,8 @@ app.get('/api/bookings', checkAdminSession, async (req, res) => {
 // Admin bookings endpoint (protected)
 app.get('/api/admin/bookings', checkAdminSession, async (req, res) => {
   try {
-    const bookings = await db.readBookings();
+    let bookings = await db.readBookings();
+    bookings = await syncStripePaymentsForPendingBookings(bookings);
     res.setHeader('X-Malibu-Storage', db.getStorageMode());
     res.setHeader('X-Malibu-Booking-Count', String(bookings.length));
     res.json(bookings);
@@ -865,12 +1134,13 @@ function checkAdminSession(req, res, next) {
 app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
   try {
     const { period } = req.query; // 'week', 'month', 'year'
-    const bookings = await db.readBookings();
+    let bookings = await db.readBookings();
+    bookings = await syncStripePaymentsForPendingBookings(bookings);
     const allBookingsInPeriod = filterBookingsByPeriod(bookings, period);
     
-    // Get unconfirmed bookings (pending or payment_pending)
+    // Get unconfirmed bookings (manual legacy payments or pending Stripe payments)
     const unconfirmedBookings = allBookingsInPeriod.filter(b => 
-      b.status === 'pending' || b.status === 'payment_pending'
+      b.status === 'pending' || b.status === 'payment_pending' || b.status === 'payment_failed'
     );
     
     // Calculate revenues
@@ -892,7 +1162,8 @@ app.get('/api/admin/statistics', checkAdminSession, async (req, res) => {
 
 app.get('/api/admin/revenue-pdf', checkAdminSession, async (req, res) => {
   try {
-    const bookings = await db.readBookings();
+    let bookings = await db.readBookings();
+    bookings = await syncStripePaymentsForPendingBookings(bookings);
     const pdf = createRevenuePdf(filterBookingsByPeriod(bookings, 'year'));
     const fileDate = new Date().toISOString().slice(0, 10);
 
@@ -908,7 +1179,8 @@ app.get('/api/admin/revenue-pdf', checkAdminSession, async (req, res) => {
 
 app.get('/api/admin/database-export', checkAdminSession, async (req, res) => {
   try {
-    const bookings = await db.readBookings();
+    let bookings = await db.readBookings();
+    bookings = await syncStripePaymentsForPendingBookings(bookings);
     const exportedAt = new Date().toISOString();
     const fileDate = exportedAt.slice(0, 10);
     const exportData = {
@@ -931,7 +1203,7 @@ app.get('/api/admin/database-export', checkAdminSession, async (req, res) => {
   }
 });
 
-// Verify payment (PayPal or Cash)
+// Manual verification for legacy cash/PayPal bookings.
 app.post('/api/bookings/:id/verify', checkAdminSession, async (req, res) => {
   try {
     const { id } = req.params;
@@ -939,6 +1211,10 @@ app.post('/api/bookings/:id/verify', checkAdminSession, async (req, res) => {
     
     if (!booking) {
       return res.status(404).json({ error: 'Buchung nicht gefunden' });
+    }
+
+    if (booking.paymentMethod === 'stripe') {
+      return res.status(409).json({ error: 'Stripe-Zahlungen werden automatisch geprüft.' });
     }
     
     await db.updateBooking(id, {

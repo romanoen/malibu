@@ -722,6 +722,11 @@
             color: var(--admin-success);
         }
 
+        .status-payment_failed {
+            background: var(--admin-danger-soft);
+            color: var(--admin-danger);
+        }
+
         .notes-section {
             margin-top: 18px;
             padding-top: 18px;
@@ -1959,7 +1964,7 @@
                     const toggleAction = escapeHtml(`toggleDay(this, ${dateKeyJs})`);
                     const dayId = getDayElementId(dateKey);
                     const pendingCount = dayBookings.filter(b =>
-                        b.status === 'pending' || b.status === 'payment_pending'
+                        b.status === 'pending' || b.status === 'payment_pending' || b.status === 'payment_failed'
                     ).length;
                     const countText = `${dayBookings.length} Buchung${dayBookings.length !== 1 ? 'en' : ''}`;
                     const pendingBadge = pendingCount > 0
@@ -2185,16 +2190,24 @@
             const boardLabel = formatBoardItems(booking);
             const price = formatCurrency(booking.price || 0);
             const notes = booking.notes || '';
-            const paymentLabel = booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
+            const paymentLabel = booking.paymentMethod === 'stripe'
+                ? 'Stripe'
+                : (booking.paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung');
 
             let statusBadge = '<span class="status-badge status-confirmed">Bestätigt</span>';
             let verifyButton = '';
 
-            if (booking.status === 'payment_pending' || booking.status === 'pending') {
-                statusBadge = booking.paymentMethod === 'paypal'
-                    ? '<span class="status-badge status-payment_pending">PayPal offen</span>'
-                    : '<span class="status-badge status-pending">Barzahlung offen</span>';
-                verifyButton = `<button class="btn btn-verify" onclick="${verifyAction}">Zahlung bestätigen</button>`;
+            if (booking.status === 'payment_failed') {
+                statusBadge = '<span class="status-badge status-payment_failed">Zahlung fehlgeschlagen</span>';
+            } else if (booking.status === 'payment_pending' || booking.status === 'pending') {
+                if (booking.paymentMethod === 'stripe') {
+                    statusBadge = '<span class="status-badge status-payment_pending">Stripe offen</span>';
+                } else {
+                    statusBadge = booking.paymentMethod === 'paypal'
+                        ? '<span class="status-badge status-payment_pending">PayPal offen</span>'
+                        : '<span class="status-badge status-pending">Barzahlung offen</span>';
+                    verifyButton = `<button class="btn btn-verify" onclick="${verifyAction}">Zahlung bestätigen</button>`;
+                }
             }
 
             const verifiedPill = booking.paymentVerified && booking.verifiedAt

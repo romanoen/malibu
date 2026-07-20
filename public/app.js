@@ -14,7 +14,7 @@ const successDetails = document.getElementById('successDetails');
 const successOverview = document.getElementById('successOverview');
 const successPaymentHint = document.getElementById('successPaymentHint');
 const successVisitNote = document.getElementById('successVisitNote');
-const paypalButton = document.getElementById('paypalLinkButton');
+const stripeButton = document.getElementById('stripeCheckoutButton');
 const calendarButton = document.getElementById('calendarButton');
 const shareButton = document.getElementById('shareButton');
 const whatsappShareButton = document.getElementById('whatsappShareButton');
@@ -25,8 +25,6 @@ const durationButtons = document.querySelectorAll('.duration-btn');
 const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]');
 const customDurationButton = document.querySelector('[data-duration-custom]');
 const customTimeField = document.getElementById('customTimeField');
-const paymentNote = document.getElementById('paymentNote');
-const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
@@ -322,7 +320,6 @@ function showCustomTimeField() {
 function resetBookingUi() {
     totalPriceDisplay.textContent = '0,00 €';
     dayRateMessage.classList.add('hidden');
-    paymentNote.classList.add('hidden');
     showBoardOccupancyHint();
     resetBoardItems();
     updateBookingSummary();
@@ -407,13 +404,6 @@ fixedDurationButtons.forEach(button => {
 });
 
 customDurationButton.addEventListener('click', showCustomTimeField);
-
-paymentMethodInputs.forEach(input => {
-    input.addEventListener('change', () => {
-        const selectedPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value;
-        paymentNote.classList.toggle('hidden', selectedPaymentMethod !== 'cash');
-    });
-});
 
 async function calculatePrice() {
     const bookingDate = bookingDateInput.value;
@@ -509,20 +499,19 @@ function formatBookingTime(value) {
 }
 
 function getPaymentLabel(paymentMethod) {
+    if (paymentMethod === 'stripe') {
+        return 'Stripe';
+    }
+
     return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
 }
 
-function getPaypalName(paypalUrl = '') {
-    const match = String(paypalUrl).match(/paypal\.me\/([^/?#]+)/i);
-    return match ? decodeURIComponent(match[1]) : 'KlausOelfken';
-}
-
-function getPlainPaypalLink(paypalUrl = '') {
-    if (!paypalUrl) {
-        return 'https://paypal.me/KlausOelfken';
+function getPaymentStatusText(booking = {}) {
+    if (booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required') {
+        return 'Online bezahlt';
     }
 
-    return String(paypalUrl);
+    return 'Zahlung offen';
 }
 
 function formatBoardItemsForDisplay(boardItems = []) {
@@ -534,12 +523,11 @@ function formatBoardItemsForDisplay(boardItems = []) {
     }).join(', ');
 }
 
-function getBookingShareText(booking, paypalUrl = null) {
-    const paymentMethod = booking.paymentMethod || 'cash';
+function getBookingShareText(booking) {
     const amount = formatMoney(booking.price);
-    const paymentText = paymentMethod === 'paypal'
-        ? `Falls noch nicht bezahlt: ${amount} per PayPal an ${getPaypalName(paypalUrl)} senden: ${getPlainPaypalLink(paypalUrl)}.`
-        : `Barzahlung: ${amount} passend mitbringen, vor Ort in einen beschrifteten Umschlag legen und in den passenden Briefkasten werfen.`;
+    const paymentText = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required'
+        ? `Zahlung: ${amount} online bezahlt.`
+        : `Zahlung: ${amount} noch nicht abgeschlossen.`;
 
     return [
         `${BUSINESS_NAME}`,
@@ -584,8 +572,8 @@ function formatIcsLocalDateTime(value) {
     ].join('');
 }
 
-function createCalendarContent(booking, paypalUrl = null) {
-    const description = getBookingShareText(booking, paypalUrl);
+function createCalendarContent(booking) {
+    const description = getBookingShareText(booking);
     const uid = `${booking.id || Date.now()}@malibu-sup-kressbronn`;
 
     return [
@@ -607,8 +595,8 @@ function createCalendarContent(booking, paypalUrl = null) {
     ].join('\r\n');
 }
 
-function downloadCalendarEntry(booking, paypalUrl = null) {
-    const blob = new Blob([createCalendarContent(booking, paypalUrl)], {
+function downloadCalendarEntry(booking) {
+    const blob = new Blob([createCalendarContent(booking)], {
         type: 'text/calendar;charset=utf-8'
     });
     const downloadUrl = URL.createObjectURL(blob);
@@ -631,8 +619,8 @@ function flashButtonText(button, text) {
     }, 1800);
 }
 
-async function shareBooking(booking, paypalUrl = null, button = null) {
-    const text = getBookingShareText(booking, paypalUrl);
+async function shareBooking(booking, button = null) {
+    const text = getBookingShareText(booking);
 
     if (navigator.share) {
         await navigator.share({
@@ -650,27 +638,25 @@ async function shareBooking(booking, paypalUrl = null, button = null) {
     }
 }
 
-function setSuccessActionVisibility({ paypal = false, finalActions = false } = {}) {
-    paypalButton.classList.toggle('hidden', !paypal);
+function setSuccessActionVisibility({ stripe = false, finalActions = false } = {}) {
+    stripeButton.classList.toggle('hidden', !stripe);
     calendarButton.classList.toggle('hidden', !finalActions);
     shareButton.classList.toggle('hidden', !finalActions);
     whatsappShareButton.classList.toggle('hidden', !finalActions);
 }
 
-function renderBookingOverview(booking, paypalUrl = null) {
+function renderBookingOverview(booking) {
     const summary = getBookingSummary(booking.boardItems);
     const amount = formatMoney(booking.price);
-    const paymentMethod = booking.paymentMethod || 'cash';
-    const paymentLabel = getPaymentLabel(paymentMethod);
-    const paymentHtml = paymentMethod === 'paypal'
+    const paymentLabel = getPaymentStatusText(booking);
+    const paymentHtml = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required'
         ? `
-            <strong>Zahlung noch offen?</strong>
-            Bitte sende ${escapeHtml(amount)} per PayPal an <strong>${escapeHtml(getPaypalName(paypalUrl))}</strong>
-            <a href="${escapeHtml(getPlainPaypalLink(paypalUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(getPlainPaypalLink(paypalUrl))}</a>
+            <strong>Zahlung eingegangen:</strong>
+            ${escapeHtml(amount)} wurde online per ${escapeHtml(getPaymentLabel(booking.paymentMethod))} bezahlt. Deine Reservierung ist bestätigt.
         `
         : `
-            <strong>Barzahlung vor Ort:</strong>
-            Bitte bringe ${escapeHtml(amount)} passend mit, lege es in einen beschrifteten Umschlag und wirf ihn in den passenden, beschrifteten Briefkasten.
+            <strong>Zahlung noch offen:</strong>
+            Bitte schließe die Online-Zahlung ab, damit deine Reservierung bestätigt wird.
         `;
 
     successOverview.innerHTML = `
@@ -721,24 +707,25 @@ function renderBookingOverview(booking, paypalUrl = null) {
     successVisitNote.classList.remove('hidden');
 }
 
-function revealFinalSuccess(booking, paymentMethod, paypalUrl = null) {
-    renderBookingOverview(booking, paypalUrl);
-    setSuccessActionVisibility({ paypal: paymentMethod === 'paypal' && Boolean(paypalUrl), finalActions: true });
+function revealFinalSuccess(booking, { checkoutUrl = null } = {}) {
+    const isPaid = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required';
+    renderBookingOverview(booking);
+    setSuccessActionVisibility({ stripe: Boolean(checkoutUrl) && !isPaid, finalActions: isPaid });
 
-    if (paypalUrl) {
-        paypalButton.href = paypalUrl;
+    if (checkoutUrl) {
+        stripeButton.href = checkoutUrl;
     }
 
-    successTitle.textContent = 'Buchung gespeichert';
-    successDetails.textContent = paymentMethod === 'paypal'
-        ? 'Deine Reservierung ist gespeichert. Unten findest du alle Details zum Merken und Teilen.'
-        : 'Deine Reservierung ist gespeichert. Unten findest du alle Details zum Merken und Teilen.';
+    successTitle.textContent = isPaid ? 'Buchung bezahlt' : 'Zahlung noch offen';
+    successDetails.textContent = isPaid
+        ? 'Deine Zahlung ist eingegangen. Unten findest du alle Details zum Merken und Teilen.'
+        : 'Deine Reservierung ist angelegt, aber die Zahlung wurde noch nicht bestätigt.';
 
-    const shareText = getBookingShareText(booking, paypalUrl);
+    const shareText = getBookingShareText(booking);
     whatsappShareButton.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    calendarButton.onclick = () => downloadCalendarEntry(booking, paypalUrl);
+    calendarButton.onclick = () => downloadCalendarEntry(booking);
     shareButton.onclick = () => {
-        shareBooking(booking, paypalUrl, shareButton).catch(error => {
+        shareBooking(booking, shareButton).catch(error => {
             console.error('Share error:', error);
         });
     };
@@ -748,7 +735,6 @@ form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const formData = new FormData(form);
-    const paymentMethod = formData.get('paymentMethod');
     const boardItems = getBoardItems();
     const boardItemsError = getBoardItemsError(boardItems);
     const privacyCheck = document.getElementById('privacyCheck').checked;
@@ -771,7 +757,7 @@ form.addEventListener('submit', async (e) => {
     dayRateMessage.classList.add('hidden');
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Wird verarbeitet...';
+    submitBtn.textContent = 'Weiter zu Stripe...';
 
     try {
         const bookingDate = formData.get('bookingDate');
@@ -789,7 +775,7 @@ form.addEventListener('submit', async (e) => {
             boardItems,
             startTime: `${bookingDate}T${startTime}:00`,
             endTime: `${bookingDate}T${endTime}:00`,
-            paymentMethod
+            paymentMethod: 'stripe'
         };
 
         const response = await fetch('/api/bookings', {
@@ -806,86 +792,89 @@ form.addEventListener('submit', async (e) => {
             throw new Error(data.error || 'Fehler bei der Buchung');
         }
 
-        const completedBooking = {
-            ...data.booking,
-            name: bookingData.name,
-            phone: bookingData.phone,
-            boardItems,
-            startTime: bookingData.startTime,
-            endTime: bookingData.endTime,
-            paymentMethod
-        };
-
-        if (paymentMethod === 'paypal') {
-            if (data.booking.paypalLink) {
-                let paypalUrl = data.booking.paypalLink;
-
-                if (paypalUrl.includes('paypal.me')) {
-                    if (!paypalUrl.startsWith('http://') && !paypalUrl.startsWith('https://')) {
-                        paypalUrl = 'https://' + paypalUrl;
-                    }
-                    paypalUrl = paypalUrl.replace(/\/$/, '');
-                    paypalUrl = `${paypalUrl}/${parseFloat(data.booking.paypalAmount).toFixed(2)}`;
-                }
-
-                showSuccessMessage(completedBooking, 'paypal', true, paypalUrl);
-            } else {
-                showSuccessMessage(completedBooking, 'paypal', true);
-            }
-        } else {
-            showSuccessMessage(completedBooking, 'cash');
+        if (!data.booking?.stripeCheckoutUrl) {
+            throw new Error('Stripe Checkout konnte nicht gestartet werden.');
         }
+
+        window.location.href = data.booking.stripeCheckoutUrl;
     } catch (error) {
         console.error('Booking error:', error);
         showErrorMessage(error.message || 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Reservieren';
+        submitBtn.textContent = 'Reservieren & bezahlen';
     }
 });
 
-function showSuccessMessage(booking, paymentMethod, needsVerification = false, paypalUrl = null) {
+function showSuccessMessage(booking, { checkoutUrl = null } = {}) {
     lastCompletedBooking = {
         ...booking,
-        paymentMethod
+        paymentMethod: booking.paymentMethod || 'stripe'
     };
-    paypalButton.onclick = null;
+    stripeButton.onclick = null;
     calendarButton.onclick = null;
     shareButton.onclick = null;
     whatsappShareButton.href = '#';
 
-    if (paymentMethod === 'cash') {
-        successTitle.textContent = 'Buchung erstellt';
-        successDetails.textContent = 'Danke für deine Reservierung. Hier ist deine Übersicht.';
-        revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
-    } else if (paymentMethod === 'paypal') {
-        successTitle.textContent = 'Reservierung angelegt';
-        successDetails.textContent = `Bitte öffne PayPal und sende ${formatMoney(booking.price)} an ${getPaypalName(paypalUrl)} und danach zeigen wir dir deine Übersicht zum Speichern und Teilen.`;
-        successOverview.classList.add('hidden');
-        successPaymentHint.classList.add('hidden');
-        successVisitNote.classList.add('hidden');
-        setSuccessActionVisibility({ paypal: true, finalActions: false });
-
-        if (paypalUrl) {
-            paypalButton.href = paypalUrl;
-            paypalButton.onclick = () => {
-                revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
-            };
-        } else {
-            setSuccessActionVisibility({ paypal: false, finalActions: false });
-            revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
-        }
-    } else {
-        successTitle.textContent = 'Buchung erstellt';
-        successDetails.textContent = 'Danke für deine Reservierung. Hier ist deine Übersicht.';
-        revealFinalSuccess(lastCompletedBooking, paymentMethod, paypalUrl);
-    }
+    revealFinalSuccess(lastCompletedBooking, { checkoutUrl });
 
     successMessage.classList.remove('hidden');
     form.reset();
     resetBookingUi();
 
     successMessage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function cleanStripeReturnParams() {
+    const url = new URL(window.location.href);
+    ['stripe_session_id', 'payment_cancelled', 'booking_id'].forEach(key => {
+        url.searchParams.delete(key);
+    });
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+}
+
+async function handleStripeReturn() {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('stripe_session_id');
+    const paymentCancelled = params.get('payment_cancelled');
+
+    if (paymentCancelled) {
+        showErrorMessage('Die Zahlung wurde abgebrochen. Deine Reservierung ist erst bestätigt, wenn die Online-Zahlung abgeschlossen ist.');
+        cleanStripeReturnParams();
+        return;
+    }
+
+    if (!sessionId) {
+        return;
+    }
+
+    successMessage.classList.add('hidden');
+    errorMessage.classList.add('hidden');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Zahlung wird geprüft...';
+
+    try {
+        const response = await fetch(`/api/stripe/checkout-session/${encodeURIComponent(sessionId)}`);
+        const data = await response.json();
+
+        if (!response.ok || data?.success !== true) {
+            throw new Error(data?.error || 'Die Zahlung konnte nicht geprüft werden.');
+        }
+
+        const isPaid = data.booking?.paymentVerified ||
+            data.paymentStatus === 'paid' ||
+            data.paymentStatus === 'no_payment_required';
+        showSuccessMessage(data.booking, {
+            checkoutUrl: isPaid ? null : data.checkoutUrl
+        });
+        cleanStripeReturnParams();
+    } catch (error) {
+        console.error('Stripe return error:', error);
+        showErrorMessage(error.message || 'Die Zahlung konnte nicht geprüft werden.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Reservieren & bezahlen';
+    }
 }
 
 function showErrorMessage(message) {
@@ -895,3 +884,4 @@ function showErrorMessage(message) {
 }
 
 updateDurationButtons();
+handleStripeReturn();

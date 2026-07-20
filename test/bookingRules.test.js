@@ -150,7 +150,7 @@ test('normalizes complete booking requests', () => {
     peoplePerBoard: '2',
     startTime: '2026-07-01T10:00:00',
     endTime: '2026-07-01T12:00:00',
-    paymentMethod: 'paypal'
+    paymentMethod: 'stripe'
   });
 
   assert.equal(result.valid, true);
@@ -180,6 +180,20 @@ test('normalizes legacy board types', () => {
   assert.equal(result.booking.peoplePerBoard, 2);
 });
 
+test('defaults new booking requests to Stripe payments', () => {
+  const result = validateBookingRequest({
+    name: 'Mara Muster',
+    phone: '+49 152 123456',
+    boardType: 'allround',
+    numberOfBoards: '1',
+    startTime: '2026-07-01T10:00:00',
+    endTime: '2026-07-01T12:00:00'
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.booking.paymentMethod, 'stripe');
+});
+
 test('normalizes mixed booking requests', () => {
   const result = validateBookingRequest({
     name: 'Mara Muster',
@@ -191,7 +205,7 @@ test('normalizes mixed booking requests', () => {
     ],
     startTime: '2026-07-01T10:00:00',
     endTime: '2026-07-01T12:00:00',
-    paymentMethod: 'paypal'
+    paymentMethod: 'stripe'
   });
 
   assert.equal(result.valid, true);

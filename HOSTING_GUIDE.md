@@ -81,7 +81,7 @@ npm install better-sqlite3
 2. "New Project" → "Deploy from GitHub"
 3. Repository auswählen
 4. PostgreSQL-Datenbank hinzufügen
-5. Environment-Variablen setzen (PAYPAL_LINK, etc.)
+5. Environment-Variablen setzen (`ADMIN_PASSWORD`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `PUBLIC_BASE_URL`, etc.)
 6. Fertig!
 
 **URL:** `https://dein-projekt.up.railway.app`
@@ -209,4 +209,3 @@ Die Admin-Seite ist öffentlich zugänglich! Jeder kann `/admin.html` aufrufen.
 4. **Deployment:** Auf Railway/Render deployen
 
 Soll ich dir bei der Implementierung helfen?
-

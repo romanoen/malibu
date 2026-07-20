@@ -44,6 +44,7 @@ async function initDatabase() {
       await ensurePeoplePerBoardColumn();
       await ensureBoardItemsColumn();
       await ensureCheckinNotifiedColumn();
+      await ensureStripePaymentColumns();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -163,6 +164,22 @@ async function ensureCheckinNotifiedColumn() {
   }
 }
 
+async function ensureStripePaymentColumns() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stripe_checkout_session_id TEXT');
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stripe_payment_intent_id TEXT');
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stripe_payment_status TEXT');
+    await pool.query('ALTER TABLE bookings ADD COLUMN IF NOT EXISTS stripe_synced_at TIMESTAMP');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_bookings_stripe_checkout_session_id ON bookings(stripe_checkout_session_id)');
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_bookings_stripe_payment_status ON bookings(stripe_payment_status)');
+    console.log('✅ Stripe payment columns verified');
+  } catch (error) {
+    console.error('⚠️  Could not add Stripe payment columns:', error.message);
+  }
+}
+
 function isValidPushSubscription(subscription) {
   return subscription &&
     typeof subscription === 'object' &&
@@ -254,6 +271,10 @@ async function readBookings() {
         status,
         paypal_link as "paypalLink",
         paypal_amount as "paypalAmount",
+        stripe_checkout_session_id as "stripeCheckoutSessionId",
+        stripe_payment_intent_id as "stripePaymentIntentId",
+        stripe_payment_status as "stripePaymentStatus",
+        stripe_synced_at as "stripeSyncedAt",
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
         notes,
@@ -373,8 +394,9 @@ async function saveBooking(booking) {
         id, name, phone, board_type, number_of_boards, people_per_board, board_items, start_time, end_time,
         duration_hours, duration_minutes, price, price_per_board,
         is_day_rate, payment_method, status, paypal_link, paypal_amount,
+        stripe_checkout_session_id, stripe_payment_intent_id, stripe_payment_status, stripe_synced_at,
         payment_verified, verified_at, notes, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
     `, [
       booking.id,
       booking.name,
@@ -394,6 +416,10 @@ async function saveBooking(booking) {
       booking.status,
       booking.paypalLink || null,
       booking.paypalAmount || null,
+      booking.stripeCheckoutSessionId || null,
+      booking.stripePaymentIntentId || null,
+      booking.stripePaymentStatus || null,
+      booking.stripeSyncedAt || null,
       booking.paymentVerified || false,
       booking.verifiedAt || null,
       booking.notes || null,
@@ -439,6 +465,22 @@ async function updateBooking(bookingId, updates) {
     if (updates.checkinNotifiedAt !== undefined) {
       setClause.push(`checkin_notified_at = $${paramIndex++}`);
       values.push(updates.checkinNotifiedAt);
+    }
+    if (updates.stripeCheckoutSessionId !== undefined) {
+      setClause.push(`stripe_checkout_session_id = $${paramIndex++}`);
+      values.push(updates.stripeCheckoutSessionId);
+    }
+    if (updates.stripePaymentIntentId !== undefined) {
+      setClause.push(`stripe_payment_intent_id = $${paramIndex++}`);
+      values.push(updates.stripePaymentIntentId);
+    }
+    if (updates.stripePaymentStatus !== undefined) {
+      setClause.push(`stripe_payment_status = $${paramIndex++}`);
+      values.push(updates.stripePaymentStatus);
+    }
+    if (updates.stripeSyncedAt !== undefined) {
+      setClause.push(`stripe_synced_at = $${paramIndex++}`);
+      values.push(updates.stripeSyncedAt);
     }
 
     if (setClause.length === 0) {
@@ -505,6 +547,10 @@ async function findBookingById(bookingId) {
         status,
         paypal_link as "paypalLink",
         paypal_amount as "paypalAmount",
+        stripe_checkout_session_id as "stripeCheckoutSessionId",
+        stripe_payment_intent_id as "stripePaymentIntentId",
+        stripe_payment_status as "stripePaymentStatus",
+        stripe_synced_at as "stripeSyncedAt",
         payment_verified as "paymentVerified",
         verified_at as "verifiedAt",
         notes,

@@ -78,7 +78,10 @@ Diese Dateien sind in `.gitignore` und werden **NICHT** zu GitHub gepusht:
 - [ ] Railway mit GitHub verbunden
 - [ ] PostgreSQL-Datenbank in Railway hinzugefügt
 - [ ] Environment-Variablen in Railway gesetzt:
-  - [ ] `PAYPAL_LINK`
+  - [ ] `ADMIN_PASSWORD`
+  - [ ] `STRIPE_SECRET_KEY`
+  - [ ] `STRIPE_WEBHOOK_SECRET`
+  - [ ] `PUBLIC_BASE_URL`
   - [ ] `DATABASE_URL` (automatisch von Railway)
 
 ## 🎉 Fertig!
@@ -87,4 +90,3 @@ Nach dem Push zu GitHub und dem Verbinden mit Railway:
 - ✅ Code wird automatisch bei jedem Push deployed
 - ✅ PostgreSQL-Datenbank ist eingerichtet
 - ✅ Website ist live!
-

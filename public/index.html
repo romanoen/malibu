@@ -79,18 +79,9 @@
 
                 <section class="form-section">
                     <h2>Zahlung</h2>
-                    <div class="form-group">
-                        <div class="payment-options">
-                            <label class="payment-option">
-                                <input type="radio" name="paymentMethod" value="paypal" required>
-                                <span>PayPal</span>
-                            </label>
-                            <label class="payment-option">
-                                <input type="radio" name="paymentMethod" value="cash" required>
-                                <span>Bar vor Ort</span>
-                            </label>
-                        </div>
-                        <small id="paymentNote" class="cash-note hidden">Bei Barzahlung bitte vor Ort passend in einen beschrifteten Umschlag legen und in den passenden, beschrifteten Briefkasten werfen.</small>
+                    <div class="payment-summary">
+                        <strong>Online-Zahlung per Stripe</strong>
+                        <span>Nach dem Reservieren wirst du zur sicheren Zahlung weitergeleitet.</span>
                     </div>
                 </section>
 
@@ -127,7 +118,7 @@
                         </div>
                     </div>
                     <button type="submit" id="submitBtn" class="submit-btn">
-                        Reservieren
+                        Reservieren & bezahlen
                     </button>
                 </div>
             </form>
@@ -144,8 +135,8 @@
                 <div id="successOverview" class="success-overview hidden"></div>
                 <div id="successPaymentHint" class="success-payment-hint hidden"></div>
                 <div id="successActions" class="success-actions">
-                    <a id="paypalLinkButton" href="#" target="_blank" rel="noopener noreferrer" class="paypal-button hidden">
-                        Jetzt bei PayPal bezahlen
+                    <a id="stripeCheckoutButton" href="#" rel="noopener noreferrer" class="stripe-button hidden">
+                        Zahlung fortsetzen
                     </a>
                     <button type="button" id="calendarButton" class="secondary-action hidden">Zum Kalender hinzufügen</button>
                     <button type="button" id="shareButton" class="secondary-action hidden">Teilen</button>
