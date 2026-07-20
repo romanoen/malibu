@@ -673,7 +673,7 @@ function renderBookingOverview(booking) {
     if (isBookingPaymentPaid(booking)) {
         paymentHtml = `
             <strong>Zahlung eingegangen:</strong>
-            ${escapeHtml(amount)} wurde online per ${escapeHtml(getPaymentLabel(booking.paymentMethod))} bezahlt. Deine Reservierung ist bestätigt.
+            ${escapeHtml(amount)} wurde online bezahlt. Deine Reservierung ist bestätigt.
         `;
     } else if (isBookingPaymentProcessing(booking)) {
         paymentHtml = `
