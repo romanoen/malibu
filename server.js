@@ -459,6 +459,7 @@ async function createStripeCheckoutSession(req, booking) {
     mode: 'payment',
     locale: 'de',
     submit_type: 'pay',
+    payment_method_types: ['card', 'sepa_debit'],
     success_url: `${origin}/?stripe_session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/?payment_cancelled=1&booking_id=${encodeURIComponent(booking.id)}`,
     client_reference_id: booking.id,

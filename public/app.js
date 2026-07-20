@@ -511,7 +511,21 @@ function getPaymentStatusText(booking = {}) {
         return 'Online bezahlt';
     }
 
+    if (booking.stripeCheckoutStatus === 'complete') {
+        return 'Wird verarbeitet';
+    }
+
     return 'Zahlung offen';
+}
+
+function isBookingPaymentPaid(booking = {}) {
+    return booking.paymentVerified ||
+        booking.stripePaymentStatus === 'paid' ||
+        booking.stripePaymentStatus === 'no_payment_required';
+}
+
+function isBookingPaymentProcessing(booking = {}) {
+    return !isBookingPaymentPaid(booking) && booking.stripeCheckoutStatus === 'complete';
 }
 
 function formatBoardItemsForDisplay(boardItems = []) {
@@ -525,9 +539,11 @@ function formatBoardItemsForDisplay(boardItems = []) {
 
 function getBookingShareText(booking) {
     const amount = formatMoney(booking.price);
-    const paymentText = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required'
+    const paymentText = isBookingPaymentPaid(booking)
         ? `Zahlung: ${amount} online bezahlt.`
-        : `Zahlung: ${amount} noch nicht abgeschlossen.`;
+        : (isBookingPaymentProcessing(booking)
+            ? `Zahlung: ${amount} per Lastschrift eingereicht, Bestätigung folgt nach Verarbeitung.`
+            : `Zahlung: ${amount} noch nicht abgeschlossen.`);
 
     return [
         `${BUSINESS_NAME}`,
@@ -649,15 +665,22 @@ function renderBookingOverview(booking) {
     const summary = getBookingSummary(booking.boardItems);
     const amount = formatMoney(booking.price);
     const paymentLabel = getPaymentStatusText(booking);
-    const paymentHtml = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required'
-        ? `
-            <strong>Zahlung eingegangen:</strong>
-            ${escapeHtml(amount)} wurde online per ${escapeHtml(getPaymentLabel(booking.paymentMethod))} bezahlt. Deine Reservierung ist bestätigt.
-        `
-        : `
+    let paymentHtml = `
             <strong>Zahlung noch offen:</strong>
             Bitte schließe die Online-Zahlung ab, damit deine Reservierung bestätigt wird.
         `;
+
+    if (isBookingPaymentPaid(booking)) {
+        paymentHtml = `
+            <strong>Zahlung eingegangen:</strong>
+            ${escapeHtml(amount)} wurde online per ${escapeHtml(getPaymentLabel(booking.paymentMethod))} bezahlt. Deine Reservierung ist bestätigt.
+        `;
+    } else if (isBookingPaymentProcessing(booking)) {
+        paymentHtml = `
+            <strong>Zahlung wird verarbeitet:</strong>
+            Deine Zahlungsdaten wurden angenommen. Bei Lastschrift kann die endgültige Bestätigung etwas dauern.
+        `;
+    }
 
     successOverview.innerHTML = `
         <div class="success-overview-grid">
@@ -708,7 +731,8 @@ function renderBookingOverview(booking) {
 }
 
 function revealFinalSuccess(booking, { checkoutUrl = null } = {}) {
-    const isPaid = booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required';
+    const isPaid = isBookingPaymentPaid(booking);
+    const isProcessing = isBookingPaymentProcessing(booking);
     renderBookingOverview(booking);
     setSuccessActionVisibility({ stripe: Boolean(checkoutUrl) && !isPaid, finalActions: isPaid });
 
@@ -716,10 +740,14 @@ function revealFinalSuccess(booking, { checkoutUrl = null } = {}) {
         stripeButton.href = checkoutUrl;
     }
 
-    successTitle.textContent = isPaid ? 'Buchung bezahlt' : 'Zahlung noch offen';
+    successTitle.textContent = isPaid
+        ? 'Buchung bezahlt'
+        : (isProcessing ? 'Zahlung wird verarbeitet' : 'Zahlung noch offen');
     successDetails.textContent = isPaid
         ? 'Deine Zahlung ist eingegangen. Unten findest du alle Details zum Merken und Teilen.'
-        : 'Deine Reservierung ist angelegt, aber die Zahlung wurde noch nicht bestätigt.';
+        : (isProcessing
+            ? 'Deine Zahlungsdaten wurden angenommen. Die Buchung wird automatisch bestätigt, sobald Stripe die Zahlung final meldet.'
+            : 'Deine Reservierung ist angelegt, aber die Zahlung wurde noch nicht bestätigt.');
 
     const shareText = getBookingShareText(booking);
     whatsappShareButton.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
@@ -864,7 +892,11 @@ async function handleStripeReturn() {
         const isPaid = data.booking?.paymentVerified ||
             data.paymentStatus === 'paid' ||
             data.paymentStatus === 'no_payment_required';
-        showSuccessMessage(data.booking, {
+        const booking = {
+            ...data.booking,
+            stripeCheckoutStatus: data.checkoutStatus || null
+        };
+        showSuccessMessage(booking, {
             checkoutUrl: isPaid ? null : data.checkoutUrl
         });
         cleanStripeReturnParams();
