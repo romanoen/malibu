@@ -368,10 +368,34 @@ function getPaymentLabel(paymentMethod) {
   return paymentMethod === 'paypal' ? 'PayPal' : 'Barzahlung';
 }
 
+function getDefaultSchemeForBaseUrl(baseUrl, fallbackScheme = 'https') {
+  return /^(localhost|127\.0\.0\.1|\[::1\])(?::|\/|$)/i.test(baseUrl)
+    ? 'http'
+    : fallbackScheme;
+}
+
+function normalizePublicBaseUrl(value, fallbackScheme = 'https') {
+  const baseUrl = String(value || '').trim().replace(/\/+$/, '');
+  if (!baseUrl) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(baseUrl)) {
+    return baseUrl;
+  }
+
+  const normalizedHost = baseUrl.replace(/^\/+/, '');
+  const scheme = getDefaultSchemeForBaseUrl(normalizedHost, fallbackScheme);
+  return `${scheme}://${normalizedHost}`;
+}
+
 function getRequestOrigin(req) {
   const configuredBaseUrl = String(process.env.PUBLIC_BASE_URL || '').trim();
-  const origin = configuredBaseUrl || `${req.protocol}://${req.get('host')}`;
-  return origin.replace(/\/+$/, '');
+  if (configuredBaseUrl) {
+    return normalizePublicBaseUrl(configuredBaseUrl);
+  }
+
+  return normalizePublicBaseUrl(`${req.protocol}://${req.get('host')}`, req.protocol || 'https');
 }
 
 function toStripeAmount(amount) {
@@ -394,6 +418,26 @@ function getStripePaymentIntentId(session = {}) {
   }
 
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id || null;
+}
+
+function getPublicBookingErrorMessage(error = {}) {
+  if (error.statusCode === 503) {
+    return error.message;
+  }
+
+  if (error.type === 'StripeInvalidRequestError' && error.param === 'success_url') {
+    return 'Stripe-Rücksprung-URL ist ungültig. Bitte PUBLIC_BASE_URL mit https:// setzen.';
+  }
+
+  if (error.type === 'StripeInvalidRequestError' && error.param === 'cancel_url') {
+    return 'Stripe-Abbruch-URL ist ungültig. Bitte PUBLIC_BASE_URL mit https:// setzen.';
+  }
+
+  if (error.type === 'StripeInvalidRequestError') {
+    return error.message || 'Stripe Checkout konnte nicht erstellt werden.';
+  }
+
+  return 'Failed to create booking';
 }
 
 function getStripePublicBooking(booking = {}) {
@@ -931,9 +975,7 @@ app.post('/api/bookings', async (req, res) => {
   } catch (error) {
     console.error('Booking error:', error);
     const statusCode = error.statusCode || 500;
-    const errorMessage = statusCode === 503
-      ? error.message
-      : 'Failed to create booking';
+    const errorMessage = getPublicBookingErrorMessage(error);
     res.status(statusCode).json({ error: errorMessage, details: error.message });
   }
 });
@@ -1428,5 +1470,6 @@ process.on('SIGINT', async () => {
 module.exports = {
   app,
   initializeApp,
+  normalizePublicBaseUrl,
   startServer
 };
