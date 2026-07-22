@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   calculatePrice,
+  validatePricingSettings,
   validateBookingRequest,
   validateBookingTimeSelection
 } = require('../lib/bookingRules');
@@ -94,6 +95,59 @@ test('calculates mixed board item bookings', () => {
     { boardType: 'super_allround', quantity: 1, peoplePerBoard: 2, price: 25 },
     { boardType: 'bigboard', quantity: 2, peoplePerBoard: 2, price: 50 }
   ]);
+});
+
+test('calculates bookings with custom pricing settings', () => {
+  const customPricing = {
+    priceTiers: [
+      { key: '90', pricePerBoard: 18 },
+      { key: '120', pricePerBoard: 24 },
+      { key: '180', pricePerBoard: 35 },
+      { key: '240', pricePerBoard: 44 },
+      { key: 'day', pricePerBoard: 55 }
+    ],
+    twoPersonSurchargePerBoard: 7
+  };
+
+  const result = calculatePrice({ hours: 2, minutes: 0 }, [
+    { boardType: 'allround', quantity: 1, peoplePerBoard: 1 },
+    { boardType: 'super_allround', quantity: 1, peoplePerBoard: 2 }
+  ], customPricing);
+
+  assert.equal(result.price, 55);
+  assert.equal(result.basePricePerBoard, 24);
+  assert.equal(result.boardItems[1].occupancySurchargePerBoard, 7);
+  assert.equal(result.boardItems[1].price, 31);
+});
+
+test('validates editable pricing settings', () => {
+  const validPricing = validatePricingSettings({
+    priceTiers: [
+      { key: '90', pricePerBoard: '15.50' },
+      { key: '120', pricePerBoard: '20' },
+      { key: '180', pricePerBoard: '30' },
+      { key: '240', pricePerBoard: '40' },
+      { key: 'day', pricePerBoard: '50' }
+    ],
+    twoPersonSurchargePerBoard: '5'
+  }, { requireComplete: true });
+
+  assert.equal(validPricing.valid, true);
+  assert.equal(validPricing.settings.priceTiers[0].pricePerBoard, 15.5);
+
+  const invalidPricing = validatePricingSettings({
+    priceTiers: [
+      { key: '90', pricePerBoard: -1 },
+      { key: '120', pricePerBoard: 20 },
+      { key: '180', pricePerBoard: 30 },
+      { key: '240', pricePerBoard: 40 },
+      { key: 'day', pricePerBoard: 50 }
+    ],
+    twoPersonSurchargePerBoard: 5
+  }, { requireComplete: true });
+
+  assert.equal(invalidPricing.valid, false);
+  assert.match(invalidPricing.errors.join(' '), /90 Minuten/);
 });
 
 test('rejects invalid board occupancy combinations', () => {

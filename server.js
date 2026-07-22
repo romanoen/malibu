@@ -860,7 +860,8 @@ app.post('/api/bookings', async (req, res) => {
       duration
     } = validation.booking;
 
-    const priceResult = calculatePrice(duration, boardItems);
+    const pricingSettings = await db.readPricingSettings();
+    const priceResult = calculatePrice(duration, boardItems, pricingSettings);
     const price = priceResult.price;
     
     const booking = {
@@ -976,6 +977,16 @@ app.get('/api/stripe/checkout-session/:sessionId', async (req, res) => {
   }
 });
 
+app.get('/api/pricing', async (req, res) => {
+  try {
+    const pricingSettings = await db.readPricingSettings();
+    res.json(pricingSettings);
+  } catch (error) {
+    console.error('Error fetching pricing settings:', error);
+    res.status(500).json({ error: 'Preise konnten nicht geladen werden' });
+  }
+});
+
 // Keep customer data behind admin auth; POST /api/bookings remains public.
 app.get('/api/bookings', checkAdminSession, async (req, res) => {
   try {
@@ -1006,6 +1017,36 @@ app.get('/api/admin/push-public-key', checkAdminSession, (req, res) => {
   res.json({
     publicKey: vapidKeys.publicKey
   });
+});
+
+app.get('/api/admin/pricing', checkAdminSession, async (req, res) => {
+  try {
+    const pricingSettings = await db.readPricingSettings();
+    res.json(pricingSettings);
+  } catch (error) {
+    console.error('Error fetching admin pricing settings:', error);
+    res.status(500).json({ error: 'Preise konnten nicht geladen werden' });
+  }
+});
+
+app.put('/api/admin/pricing', checkAdminSession, async (req, res) => {
+  try {
+    const pricingSettings = await db.savePricingSettings(req.body);
+    res.json({
+      success: true,
+      pricing: pricingSettings
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 500;
+    if (statusCode >= 500) {
+      console.error('Error saving pricing settings:', error);
+    }
+
+    res.status(statusCode).json({
+      error: error.message || 'Preise konnten nicht gespeichert werden',
+      errors: error.errors || undefined
+    });
+  }
 });
 
 app.post('/api/admin/push-subscriptions', checkAdminSession, async (req, res) => {
@@ -1189,12 +1230,15 @@ app.get('/api/admin/database-export', checkAdminSession, async (req, res) => {
     bookings = await syncStripePaymentsForPendingBookings(bookings);
     const exportedAt = new Date().toISOString();
     const fileDate = exportedAt.slice(0, 10);
+    const pricingSettings = await db.readPricingSettings();
     const exportData = {
       exportedAt,
       storage: db.getStorageMode(),
       recordCounts: {
-        bookings: bookings.length
+        bookings: bookings.length,
+        pricingSettings: 1
       },
+      pricingSettings,
       bookings
     };
     const json = JSON.stringify(exportData, null, 2);
@@ -1287,7 +1331,7 @@ app.delete('/api/bookings/:id', checkAdminSession, async (req, res) => {
   }
 });
 
-app.post('/api/calculate-price', (req, res) => {
+app.post('/api/calculate-price', async (req, res) => {
   try {
     const validation = validateBookingTimeSelection(req.body);
 
@@ -1298,9 +1342,11 @@ app.post('/api/calculate-price', (req, res) => {
       });
     }
 
+    const pricingSettings = await db.readPricingSettings();
     const priceResult = calculatePrice(
       validation.booking.duration,
-      validation.booking.boardItems
+      validation.booking.boardItems,
+      pricingSettings
     );
     
     res.json({ 

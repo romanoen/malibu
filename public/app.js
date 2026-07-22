@@ -25,6 +25,7 @@ const durationButtons = document.querySelectorAll('.duration-btn');
 const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]');
 const customDurationButton = document.querySelector('[data-duration-custom]');
 const customTimeField = document.getElementById('customTimeField');
+const pricingList = document.getElementById('pricingList');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
@@ -482,6 +483,31 @@ function formatMoney(amount) {
     });
 }
 
+function renderPricingList(pricing = {}) {
+    if (!pricingList || !Array.isArray(pricing.priceTiers)) {
+        return;
+    }
+
+    const rows = pricing.priceTiers.map(tier => (
+        `<li>${escapeHtml(tier.label)}: ${escapeHtml(formatMoney(tier.pricePerBoard))}</li>`
+    ));
+    rows.push(`<li>Zuschlag für 2 Personen pro Brett: ${escapeHtml(formatMoney(pricing.twoPersonSurchargePerBoard))}</li>`);
+    pricingList.innerHTML = rows.join('');
+}
+
+async function loadPricingInfo() {
+    try {
+        const response = await fetch('/api/pricing');
+        if (!response.ok) {
+            return;
+        }
+
+        renderPricingList(await response.json());
+    } catch (error) {
+        console.error('Error loading pricing info:', error);
+    }
+}
+
 function formatBookingDate(value) {
     return new Date(value).toLocaleDateString('de-DE', {
         weekday: 'long',
@@ -916,4 +942,5 @@ function showErrorMessage(message) {
 }
 
 updateDurationButtons();
+loadPricingInfo();
 handleStripeReturn();

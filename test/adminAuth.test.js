@@ -14,6 +14,7 @@ let server;
 let baseUrl;
 let tempDirectory = null;
 const originalBookingsFile = process.env.BOOKINGS_FILE;
+const originalPricingSettingsFile = process.env.PRICING_SETTINGS_FILE;
 
 function extractCookieValue(setCookieHeader) {
   return setCookieHeader.split(';', 1)[0];
@@ -25,6 +26,13 @@ async function createTempBookingsFile(initialBookings = []) {
   await fs.writeFile(bookingsFile, JSON.stringify(initialBookings, null, 2));
 
   return { directory, bookingsFile };
+}
+
+async function createTempPricingSettingsFile() {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'malibu-pricing-'));
+  const pricingSettingsFile = path.join(directory, 'pricing-settings.json');
+
+  return { directory, pricingSettingsFile };
 }
 
 async function loginAsAdmin() {
@@ -61,6 +69,12 @@ test.beforeEach(() => {
   } else {
     process.env.BOOKINGS_FILE = originalBookingsFile;
   }
+
+  if (originalPricingSettingsFile === undefined) {
+    delete process.env.PRICING_SETTINGS_FILE;
+  } else {
+    process.env.PRICING_SETTINGS_FILE = originalPricingSettingsFile;
+  }
 });
 
 test.afterEach(async () => {
@@ -68,6 +82,12 @@ test.afterEach(async () => {
     delete process.env.BOOKINGS_FILE;
   } else {
     process.env.BOOKINGS_FILE = originalBookingsFile;
+  }
+
+  if (originalPricingSettingsFile === undefined) {
+    delete process.env.PRICING_SETTINGS_FILE;
+  } else {
+    process.env.PRICING_SETTINGS_FILE = originalPricingSettingsFile;
   }
 
   if (tempDirectory) {
@@ -245,4 +265,82 @@ test('admin can export bookings as a protected JSON backup', async () => {
   const exportData = await exportResponse.json();
   assert.equal(exportData.recordCounts.bookings, 1);
   assert.equal(exportData.bookings[0].id, 'booking-export-test');
+});
+
+test('admin can edit pricing settings and public price calculations use them', async () => {
+  const tempPricingState = await createTempPricingSettingsFile();
+  tempDirectory = tempPricingState.directory;
+  process.env.PRICING_SETTINGS_FILE = tempPricingState.pricingSettingsFile;
+
+  const unauthorizedResponse = await fetch(`${baseUrl}/api/admin/pricing`);
+  assert.equal(unauthorizedResponse.status, 401);
+
+  const publicPricingResponse = await fetch(`${baseUrl}/api/pricing`);
+  assert.equal(publicPricingResponse.status, 200);
+  const publicPricing = await publicPricingResponse.json();
+  assert.equal(publicPricing.priceTiers[0].pricePerBoard, 15);
+
+  const sessionCookie = await loginAsAdmin();
+  const pricingResponse = await fetch(`${baseUrl}/api/admin/pricing`, {
+    headers: { Cookie: sessionCookie }
+  });
+
+  assert.equal(pricingResponse.status, 200);
+  const pricing = await pricingResponse.json();
+
+  const updateResponse = await fetch(`${baseUrl}/api/admin/pricing`, {
+    method: 'PUT',
+    headers: {
+      Cookie: sessionCookie,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      priceTiers: pricing.priceTiers.map(tier => ({
+        key: tier.key,
+        maxMinutes: tier.maxMinutes,
+        pricePerBoard: tier.key === '90' ? '18.50' : tier.pricePerBoard
+      })),
+      twoPersonSurchargePerBoard: '6.50'
+    })
+  });
+
+  assert.equal(updateResponse.status, 200);
+  const updateData = await updateResponse.json();
+  assert.equal(updateData.success, true);
+  assert.equal(updateData.pricing.priceTiers[0].pricePerBoard, 18.5);
+  assert.equal(updateData.pricing.twoPersonSurchargePerBoard, 6.5);
+
+  const priceResponse = await fetch(`${baseUrl}/api/calculate-price`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      startTime: '2026-04-25T10:00:00',
+      endTime: '2026-04-25T11:30:00',
+      boardItems: [
+        { boardType: 'allround', quantity: 1, peoplePerBoard: 1 }
+      ]
+    })
+  });
+
+  assert.equal(priceResponse.status, 200);
+  assert.equal((await priceResponse.json()).price, 18.5);
+
+  const invalidResponse = await fetch(`${baseUrl}/api/admin/pricing`, {
+    method: 'PUT',
+    headers: {
+      Cookie: sessionCookie,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      priceTiers: pricing.priceTiers.map(tier => ({
+        key: tier.key,
+        maxMinutes: tier.maxMinutes,
+        pricePerBoard: tier.key === '90' ? -1 : tier.pricePerBoard
+      })),
+      twoPersonSurchargePerBoard: '6.50'
+    })
+  });
+
+  assert.equal(invalidResponse.status, 400);
+  assert.match((await invalidResponse.json()).error, /90 Minuten/);
 });

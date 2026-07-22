@@ -4,6 +4,11 @@
 const { Pool } = require('pg');
 const fs = require('fs').promises;
 const path = require('path');
+const {
+  cloneDefaultPricingSettings,
+  normalizePricingSettings,
+  validatePricingSettings
+} = require('../lib/bookingRules');
 
 let pool = null;
 let usePostgreSQL = false;
@@ -18,6 +23,12 @@ function getPushSubscriptionsFile() {
   return process.env.PUSH_SUBSCRIPTIONS_FILE
     ? path.resolve(process.env.PUSH_SUBSCRIPTIONS_FILE)
     : path.join(__dirname, '..', 'push-subscriptions.json');
+}
+
+function getPricingSettingsFile() {
+  return process.env.PRICING_SETTINGS_FILE
+    ? path.resolve(process.env.PRICING_SETTINGS_FILE)
+    : path.join(__dirname, '..', 'pricing-settings.json');
 }
 
 // Initialize database connection
@@ -45,6 +56,7 @@ async function initDatabase() {
       await ensureBoardItemsColumn();
       await ensureCheckinNotifiedColumn();
       await ensureStripePaymentColumns();
+      await ensurePricingSettingsTable();
     } catch (error) {
       console.error('❌ Database connection error:', error.message);
       usePostgreSQL = false;
@@ -177,6 +189,23 @@ async function ensureStripePaymentColumns() {
     console.log('✅ Stripe payment columns verified');
   } catch (error) {
     console.error('⚠️  Could not add Stripe payment columns:', error.message);
+  }
+}
+
+async function ensurePricingSettingsTable() {
+  if (!usePostgreSQL) return;
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pricing_settings (
+        id TEXT PRIMARY KEY,
+        settings JSONB NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Pricing settings table verified');
+  } catch (error) {
+    console.error('⚠️  Could not verify pricing settings table:', error.message);
   }
 }
 
@@ -384,6 +413,81 @@ async function deletePushSubscription(endpoint) {
   await fs.mkdir(path.dirname(PUSH_SUBSCRIPTIONS_FILE), { recursive: true });
   await fs.writeFile(PUSH_SUBSCRIPTIONS_FILE, JSON.stringify(nextSubscriptions, null, 2));
   return true;
+}
+
+function withPricingMetadata(settings, updatedAt = null) {
+  return {
+    ...settings,
+    updatedAt
+  };
+}
+
+async function readPricingSettings() {
+  if (usePostgreSQL) {
+    const result = await pool.query(`
+      SELECT settings, updated_at as "updatedAt"
+      FROM pricing_settings
+      WHERE id = 'active'
+    `);
+
+    if (result.rows.length === 0) {
+      return withPricingMetadata(cloneDefaultPricingSettings(), null);
+    }
+
+    try {
+      return withPricingMetadata(
+        normalizePricingSettings(result.rows[0].settings),
+        result.rows[0].updatedAt
+      );
+    } catch (error) {
+      console.error('⚠️  Stored pricing settings are invalid, using defaults:', error.message);
+      return withPricingMetadata(cloneDefaultPricingSettings(), null);
+    }
+  }
+
+  const PRICING_SETTINGS_FILE = getPricingSettingsFile();
+  try {
+    const data = await fs.readFile(PRICING_SETTINGS_FILE, 'utf8');
+    const parsedSettings = JSON.parse(data);
+
+    return withPricingMetadata(
+      normalizePricingSettings(parsedSettings),
+      parsedSettings.updatedAt || null
+    );
+  } catch (error) {
+    return withPricingMetadata(cloneDefaultPricingSettings(), null);
+  }
+}
+
+async function savePricingSettings(input) {
+  const validation = validatePricingSettings(input, { requireComplete: true });
+  if (!validation.valid) {
+    const error = new Error(validation.errors[0] || 'Ungültige Preise');
+    error.statusCode = 400;
+    error.errors = validation.errors;
+    throw error;
+  }
+
+  const updatedAt = new Date().toISOString();
+  const settings = validation.settings;
+
+  if (usePostgreSQL) {
+    await pool.query(`
+      INSERT INTO pricing_settings (id, settings, updated_at)
+      VALUES ('active', $1, CURRENT_TIMESTAMP)
+      ON CONFLICT (id)
+      DO UPDATE SET settings = EXCLUDED.settings, updated_at = CURRENT_TIMESTAMP
+    `, [JSON.stringify(settings)]);
+
+    return readPricingSettings();
+  }
+
+  const PRICING_SETTINGS_FILE = getPricingSettingsFile();
+  const persistedSettings = withPricingMetadata(settings, updatedAt);
+  await fs.mkdir(path.dirname(PRICING_SETTINGS_FILE), { recursive: true });
+  await fs.writeFile(PRICING_SETTINGS_FILE, JSON.stringify(persistedSettings, null, 2));
+
+  return persistedSettings;
 }
 
 // Save a booking (works with both PostgreSQL and JSON)
@@ -594,6 +698,8 @@ module.exports = {
   updateBooking,
   deleteBooking,
   findBookingById,
+  readPricingSettings,
+  savePricingSettings,
   readPushSubscriptions,
   savePushSubscription,
   deletePushSubscription,

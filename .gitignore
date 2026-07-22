@@ -1,6 +1,7 @@
 node_modules/
 bookings.json
 push-subscriptions.json
+pricing-settings.json
 .env
 .DS_Store
 *.log

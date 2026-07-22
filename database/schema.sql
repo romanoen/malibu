@@ -43,3 +43,9 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_push_subscriptions_created_at ON push_subscriptions(created_at);
+
+CREATE TABLE IF NOT EXISTS pricing_settings (
+    id TEXT PRIMARY KEY,
+    settings JSONB NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
