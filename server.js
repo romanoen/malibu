@@ -32,6 +32,8 @@ const BOOKING_TIME_ZONE = process.env.BOOKING_TIME_ZONE || 'Europe/Berlin';
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const DEFAULT_STRIPE_PAYMENT_METHOD_TYPES = ['card', 'paypal'];
+const stripePaymentMethodTypes = parseStripePaymentMethodTypes(process.env.STRIPE_PAYMENT_METHOD_TYPES);
 const configuredVapidKeys = process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY
   ? {
       publicKey: process.env.VAPID_PUBLIC_KEY,
@@ -80,6 +82,15 @@ function clearAdminCookie(res) {
 function sendUnauthorized(res) {
   clearAdminCookie(res);
   return res.status(401).json({ error: 'Nicht autorisiert' });
+}
+
+function parseStripePaymentMethodTypes(value) {
+  const configuredTypes = String(value || '')
+    .split(',')
+    .map(type => type.trim())
+    .filter(Boolean);
+
+  return configuredTypes.length > 0 ? configuredTypes : DEFAULT_STRIPE_PAYMENT_METHOD_TYPES;
 }
 
 function transliterateForPdf(value) {
@@ -547,7 +558,7 @@ async function createStripeCheckoutSession(req, booking) {
     mode: 'payment',
     locale: 'de',
     submit_type: 'pay',
-    payment_method_types: ['card', 'paypal', 'sepa_debit'],
+    payment_method_types: stripePaymentMethodTypes,
     wallet_options: {
       link: {
         display: 'never'
@@ -1520,5 +1531,6 @@ module.exports = {
   app,
   initializeApp,
   normalizePublicBaseUrl,
+  parseStripePaymentMethodTypes,
   startServer
 };
