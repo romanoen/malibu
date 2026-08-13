@@ -475,6 +475,198 @@ function getStripePaymentIntentId(session = {}) {
   return typeof paymentIntent === 'string' ? paymentIntent : paymentIntent.id || null;
 }
 
+function encodeStripeBoardItems(boardItems = []) {
+  return boardItems
+    .map(item => [
+      item.boardType || 'allround',
+      Number.parseInt(item.quantity, 10) || 1,
+      Number.parseInt(item.peoplePerBoard, 10) || 1
+    ].join(':'))
+    .join(';');
+}
+
+function decodeStripeBoardItems(value) {
+  return String(value || '')
+    .split(';')
+    .map(item => item.trim())
+    .filter(Boolean)
+    .map(item => {
+      const [boardType, quantity, peoplePerBoard] = item.split(':');
+      return {
+        boardType: boardType || 'allround',
+        quantity: Number.parseInt(quantity, 10) || 1,
+        peoplePerBoard: Number.parseInt(peoplePerBoard, 10) || 1
+      };
+    });
+}
+
+function createStripeBookingMetadata(booking = {}) {
+  return {
+    bookingId: String(booking.id || ''),
+    bookingName: String(booking.name || ''),
+    bookingPhone: String(booking.phone || ''),
+    bookingStartTime: String(booking.startTime || ''),
+    bookingEndTime: String(booking.endTime || ''),
+    bookingBoardItems: encodeStripeBoardItems(booking.boardItems),
+    bookingBoardType: String(booking.boardType || 'allround'),
+    bookingNumberOfBoards: String(booking.numberOfBoards || 1),
+    bookingPeoplePerBoard: String(booking.peoplePerBoard || 1),
+    bookingDurationHours: String(booking.duration?.hours || 0),
+    bookingDurationMinutes: String(booking.duration?.minutes || 0),
+    bookingPrice: String(booking.price || 0),
+    bookingPricePerBoard: String(booking.pricePerBoard || 0),
+    bookingIsDayRate: booking.isDayRate ? 'true' : 'false'
+  };
+}
+
+function formatBookingDateTimeParts(parts) {
+  return [
+    String(parts.year).padStart(4, '0'),
+    '-',
+    String(parts.month).padStart(2, '0'),
+    '-',
+    String(parts.day).padStart(2, '0'),
+    'T',
+    String(parts.hour).padStart(2, '0'),
+    ':',
+    String(parts.minute).padStart(2, '0'),
+    ':',
+    String(parts.second || 0).padStart(2, '0')
+  ].join('');
+}
+
+function addMinutesToBookingDateTime(value, minutes) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
+  date.setUTCMinutes(date.getUTCMinutes() + minutes);
+
+  return formatBookingDateTimeParts({
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds()
+  });
+}
+
+function getStripeSessionLineItemDescription(session = {}) {
+  return session.line_items?.data?.[0]?.description || '';
+}
+
+function inferStripeEndTime(session = {}, startTime = '') {
+  const startParts = parseBookingDateTimeParts(startTime);
+  if (!startParts) {
+    return null;
+  }
+
+  const description = getStripeSessionLineItemDescription(session);
+  const timeRangeMatch = description.match(/(\d{2}:\d{2})-(\d{2}:\d{2})\s*Uhr/);
+  if (!timeRangeMatch) {
+    return addMinutesToBookingDateTime(startTime, 90);
+  }
+
+  const [hour, minute] = timeRangeMatch[2].split(':').map(Number);
+  return formatBookingDateTimeParts({
+    ...startParts,
+    hour,
+    minute,
+    second: 0
+  });
+}
+
+function getDurationBetweenBookingTimes(startTime, endTime) {
+  const durationMinutes = Math.max(0, Math.round((getBookingSortValue(endTime) - getBookingSortValue(startTime)) / 60000));
+  return {
+    hours: Math.floor(durationMinutes / 60),
+    minutes: durationMinutes % 60
+  };
+}
+
+function createRecoveredBookingFromStripeSession(session = {}) {
+  const metadata = session.metadata || {};
+  const bookingId = getStripeSessionBookingId(session);
+  const startTime = metadata.bookingStartTime || null;
+  const endTime = metadata.bookingEndTime || inferStripeEndTime(session, startTime);
+
+  if (!bookingId || !startTime || !endTime) {
+    return null;
+  }
+
+  const duration = getDurationBetweenBookingTimes(startTime, endTime);
+  const boardItems = decodeStripeBoardItems(metadata.bookingBoardItems);
+  const numberOfBoards = Number.parseInt(metadata.bookingNumberOfBoards, 10) || boardItems.reduce((sum, item) => sum + item.quantity, 0) || 1;
+  const peoplePerBoard = Number.parseInt(metadata.bookingPeoplePerBoard, 10) || boardItems[0]?.peoplePerBoard || 1;
+  const paymentStatus = session.payment_status || 'unpaid';
+  const isPaid = paymentStatus === 'paid' || paymentStatus === 'no_payment_required';
+  const now = createBookingTimestamp();
+
+  return {
+    id: bookingId,
+    name: metadata.bookingName || 'Stripe Zahlung',
+    phone: metadata.bookingPhone || '-',
+    boardItems: boardItems.length > 0 ? boardItems : [{
+      boardType: metadata.bookingBoardType || 'allround',
+      quantity: numberOfBoards,
+      peoplePerBoard
+    }],
+    boardType: metadata.bookingBoardType || boardItems[0]?.boardType || 'allround',
+    numberOfBoards,
+    peoplePerBoard,
+    startTime,
+    endTime,
+    duration: {
+      hours: Number.parseInt(metadata.bookingDurationHours, 10) || duration.hours,
+      minutes: Number.parseInt(metadata.bookingDurationMinutes, 10) || duration.minutes
+    },
+    price: Number.parseFloat(metadata.bookingPrice || 0) || Number.parseFloat(session.amount_total || 0) / 100 || 0,
+    pricePerBoard: Number.parseFloat(metadata.bookingPricePerBoard || 0) || 0,
+    isDayRate: metadata.bookingIsDayRate === 'true',
+    paymentMethod: 'stripe',
+    status: isPaid ? 'confirmed' : 'payment_pending',
+    paymentVerified: isPaid,
+    verifiedAt: isPaid ? now : null,
+    stripeCheckoutSessionId: session.id || null,
+    stripePaymentIntentId: getStripePaymentIntentId(session),
+    stripePaymentStatus: paymentStatus,
+    stripeSyncedAt: now,
+    createdAt: now
+  };
+}
+
+async function findOrRecoverStripeBooking(session = {}) {
+  const bookingId = getStripeSessionBookingId(session);
+  if (!bookingId) {
+    return null;
+  }
+
+  const existingBooking = await db.findBookingById(bookingId);
+  if (existingBooking) {
+    return existingBooking;
+  }
+
+  const recoveredBooking = createRecoveredBookingFromStripeSession(session);
+  if (!recoveredBooking) {
+    return null;
+  }
+
+  try {
+    await db.saveBooking(recoveredBooking);
+    console.warn('Recovered missing Stripe booking from checkout session metadata:', bookingId);
+  } catch (error) {
+    console.error('Could not recover missing Stripe booking:', {
+      bookingId,
+      message: error.message
+    });
+  }
+
+  return db.findBookingById(bookingId);
+}
+
 function getPublicBookingErrorMessage(error = {}) {
   if (error.statusCode === 503) {
     return error.message;
@@ -521,6 +713,11 @@ async function applyStripeSessionToBooking(session = {}, options = {}) {
     return null;
   }
 
+  const booking = await findOrRecoverStripeBooking(session);
+  if (!booking) {
+    return null;
+  }
+
   const paymentStatus = session.payment_status || 'unpaid';
   const isPaid = paymentStatus === 'paid' || paymentStatus === 'no_payment_required';
   const now = createBookingTimestamp();
@@ -554,6 +751,7 @@ async function createStripeCheckoutSession(req, booking) {
   const amountInCents = toStripeAmount(booking.price);
   const timeRange = `${formatBookingShortDate(booking.startTime)}, ${formatBookingClockTime(booking.startTime)}-${formatBookingClockTime(booking.endTime)} Uhr`;
   const boardSummary = formatBoardItems(booking);
+  const metadata = createStripeBookingMetadata(booking);
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     locale: 'de',
@@ -567,17 +765,9 @@ async function createStripeCheckoutSession(req, booking) {
     success_url: `${origin}/?stripe_session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/?payment_cancelled=1&booking_id=${encodeURIComponent(booking.id)}`,
     client_reference_id: booking.id,
-    metadata: {
-      bookingId: booking.id,
-      bookingName: booking.name,
-      bookingStartTime: booking.startTime
-    },
+    metadata,
     payment_intent_data: {
-      metadata: {
-        bookingId: booking.id,
-        bookingName: booking.name,
-        bookingStartTime: booking.startTime
-      }
+      metadata
     },
     line_items: [{
       quantity: 1,
@@ -998,17 +1188,33 @@ app.post('/api/bookings', async (req, res) => {
       booking.paymentVerified = false;
     }
 
-    if (paymentMethod === 'stripe') {
-      const stripeSession = await createStripeCheckoutSession(req, booking);
-      booking.stripeCheckoutSessionId = stripeSession.id;
-      booking.stripePaymentIntentId = getStripePaymentIntentId(stripeSession);
-      booking.stripePaymentStatus = stripeSession.payment_status || 'unpaid';
-      booking.stripeSyncedAt = createBookingTimestamp();
-      booking.stripeCheckoutUrl = stripeSession.url;
-    }
-    
-    // Save booking
     await db.saveBooking(booking);
+
+    if (paymentMethod === 'stripe') {
+      try {
+        const stripeSession = await createStripeCheckoutSession(req, booking);
+        booking.stripeCheckoutSessionId = stripeSession.id;
+        booking.stripePaymentIntentId = getStripePaymentIntentId(stripeSession);
+        booking.stripePaymentStatus = stripeSession.payment_status || 'unpaid';
+        booking.stripeSyncedAt = createBookingTimestamp();
+        booking.stripeCheckoutUrl = stripeSession.url;
+
+        await db.updateBooking(booking.id, {
+          stripeCheckoutSessionId: booking.stripeCheckoutSessionId,
+          stripePaymentIntentId: booking.stripePaymentIntentId,
+          stripePaymentStatus: booking.stripePaymentStatus,
+          stripeSyncedAt: booking.stripeSyncedAt
+        });
+      } catch (error) {
+        await db.deleteBooking(booking.id).catch(deleteError => {
+          console.error('Could not remove booking after Stripe checkout failure:', {
+            bookingId: booking.id,
+            message: deleteError.message
+          });
+        });
+        throw error;
+      }
+    }
     
     res.json({
       success: true,
@@ -1051,7 +1257,9 @@ app.get('/api/stripe/checkout-session/:sessionId', async (req, res) => {
       return res.status(400).json({ error: 'Ungültige Stripe-Session.' });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ['line_items']
+    });
     const bookingId = getStripeSessionBookingId(session);
     if (!bookingId) {
       return res.status(404).json({ error: 'Buchung zur Stripe-Zahlung nicht gefunden.' });
