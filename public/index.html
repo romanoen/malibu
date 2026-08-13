@@ -79,9 +79,21 @@
 
                 <section class="form-section">
                     <h2>Zahlung</h2>
-                    <div class="payment-summary">
-                        <strong>Online-Zahlung</strong>
-                        <span>Nach dem Reservieren wirst du zur sicheren Zahlung weitergeleitet.</span>
+                    <div class="payment-options" role="radiogroup" aria-label="Zahlungsmethode">
+                        <label class="payment-option">
+                            <input type="radio" name="paymentMethod" value="stripe" checked>
+                            <span>
+                                <strong>Online-Zahlung</strong>
+                                <small>Nach dem Reservieren wirst du zur sicheren Zahlung weitergeleitet.</small>
+                            </span>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="paymentMethod" value="cash">
+                            <span>
+                                <strong>Barzahlung vor Ort</strong>
+                                <small>Bitte bringe den Betrag passend mit.</small>
+                            </span>
+                        </label>
                     </div>
                 </section>
 
@@ -90,10 +102,6 @@
                         <label class="checkbox-label">
                             <input type="checkbox" id="privacyCheck" name="privacyCheck" required>
                             <span><a href="/datenschutz.html" target="_blank" class="link-checkbox">Datenschutz</a> akzeptiert</span>
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="safetyCheck" name="safetyCheck" required>
-                            <span><a href="/leitfaden.html" target="_blank" class="link-checkbox">Leitfaden</a> gelesen</span>
                         </label>
                         <label class="checkbox-label">
                             <input type="checkbox" id="liabilityCheck" name="liabilityCheck" required>

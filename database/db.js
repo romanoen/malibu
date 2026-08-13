@@ -289,8 +289,8 @@ async function readBookings() {
         number_of_boards as "numberOfBoards",
         people_per_board as "peoplePerBoard",
         board_items as "boardItems",
-        start_time as "startTime",
-        end_time as "endTime",
+        to_char(start_time, 'YYYY-MM-DD"T"HH24:MI:SS') as "startTime",
+        to_char(end_time, 'YYYY-MM-DD"T"HH24:MI:SS') as "endTime",
         duration_hours as "durationHours",
         duration_minutes as "durationMinutes",
         price,
@@ -303,12 +303,12 @@ async function readBookings() {
         stripe_checkout_session_id as "stripeCheckoutSessionId",
         stripe_payment_intent_id as "stripePaymentIntentId",
         stripe_payment_status as "stripePaymentStatus",
-        stripe_synced_at as "stripeSyncedAt",
+        to_char(stripe_synced_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "stripeSyncedAt",
         payment_verified as "paymentVerified",
-        verified_at as "verifiedAt",
+        to_char(verified_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "verifiedAt",
         notes,
-        checkin_notified_at as "checkinNotifiedAt",
-        created_at as "createdAt"
+        to_char(checkin_notified_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "checkinNotifiedAt",
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "createdAt"
       FROM bookings
       ORDER BY created_at DESC
     `);
@@ -640,8 +640,8 @@ async function findBookingById(bookingId) {
         number_of_boards as "numberOfBoards",
         people_per_board as "peoplePerBoard",
         board_items as "boardItems",
-        start_time as "startTime",
-        end_time as "endTime",
+        to_char(start_time, 'YYYY-MM-DD"T"HH24:MI:SS') as "startTime",
+        to_char(end_time, 'YYYY-MM-DD"T"HH24:MI:SS') as "endTime",
         duration_hours as "durationHours",
         duration_minutes as "durationMinutes",
         price,
@@ -654,12 +654,12 @@ async function findBookingById(bookingId) {
         stripe_checkout_session_id as "stripeCheckoutSessionId",
         stripe_payment_intent_id as "stripePaymentIntentId",
         stripe_payment_status as "stripePaymentStatus",
-        stripe_synced_at as "stripeSyncedAt",
+        to_char(stripe_synced_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "stripeSyncedAt",
         payment_verified as "paymentVerified",
-        verified_at as "verifiedAt",
+        to_char(verified_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "verifiedAt",
         notes,
-        checkin_notified_at as "checkinNotifiedAt",
-        created_at as "createdAt"
+        to_char(checkin_notified_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "checkinNotifiedAt",
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS') as "createdAt"
       FROM bookings
       WHERE id = $1
     `, [bookingId]);

@@ -23,6 +23,17 @@ test('allows bookings to end exactly at closing time', () => {
   });
 });
 
+test('treats ISO-like booking timestamps as local booking times', () => {
+  const result = validateBookingTimeSelection({
+    startTime: '2026-07-01T19:45:00.000Z',
+    endTime: '2026-07-01T20:00:00.000Z',
+    numberOfBoards: 1
+  });
+
+  assert.equal(result.valid, true);
+  assert.equal(result.booking.duration.totalMinutes, 15);
+});
+
 test('rejects starts at closing time and backwards durations', () => {
   const closingStart = validateBookingTimeSelection({
     startTime: '2026-07-01T20:00:00',

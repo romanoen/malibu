@@ -121,10 +121,7 @@ function formatPushCurrency(amount) {
 }
 
 function formatPdfTime(value) {
-  return new Date(value).toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+  return formatBookingClockTime(value);
 }
 
 function parseBookingDateTimeParts(value) {
@@ -154,8 +151,55 @@ function parseBookingDateTimeParts(value) {
   };
 }
 
+function getTimeZoneDateTimeParts(date = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: BOOKING_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date).reduce((memo, part) => {
+    if (part.type !== 'literal') {
+      memo[part.type] = part.value;
+    }
+    return memo;
+  }, {});
+}
+
+function formatPartsAsLocalDateTime(parts) {
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function createBookingTimestamp(date = new Date()) {
+  return formatPartsAsLocalDateTime(getTimeZoneDateTimeParts(date));
+}
+
+function formatBookingDate(value, options = {}) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return '';
+  }
+
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).toLocaleDateString('de-DE', {
+    ...options,
+    timeZone: 'UTC'
+  });
+}
+
+function getBookingSortValue(value) {
+  const parts = parseBookingDateTimeParts(value);
+  if (!parts) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+}
+
 function getTimeZoneOffsetMs(date, timeZone) {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -163,7 +207,7 @@ function getTimeZoneOffsetMs(date, timeZone) {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
+    hourCycle: 'h23'
   }).formatToParts(date).reduce((memo, part) => {
     if (part.type !== 'literal') {
       memo[part.type] = Number.parseInt(part.value, 10);
@@ -468,7 +512,7 @@ async function applyStripeSessionToBooking(session = {}, options = {}) {
 
   const paymentStatus = session.payment_status || 'unpaid';
   const isPaid = paymentStatus === 'paid' || paymentStatus === 'no_payment_required';
-  const now = new Date().toISOString();
+  const now = createBookingTimestamp();
   const updates = {
     stripeCheckoutSessionId: session.id || null,
     stripePaymentIntentId: getStripePaymentIntentId(session),
@@ -652,7 +696,7 @@ async function processDueCheckinNotifications() {
 
       if (result.total === 0 || result.sent > 0 || result.removed > 0) {
         await db.updateBooking(booking.id, {
-          checkinNotifiedAt: new Date().toISOString()
+          checkinNotifiedAt: createBookingTimestamp()
         });
       }
     }
@@ -799,13 +843,15 @@ function createRevenuePdf(bookings = []) {
     });
   };
 
-  const sortedBookings = [...bookings].sort((left, right) => {
-    return new Date(left.startTime).getTime() - new Date(right.startTime).getTime();
-  });
+  const sortedBookings = [...bookings].sort((left, right) => getBookingSortValue(left.startTime) - getBookingSortValue(right.startTime));
   const totalRevenue = sortedBookings.reduce((sum, booking) => sum + Number.parseFloat(booking.price || 0), 0);
 
   addPage();
-  addText(margin, `Erstellt am ${new Date().toLocaleString('de-DE')}`, { size: 9, color: '0.36 0.42 0.39' });
+  addText(margin, `Erstellt am ${new Intl.DateTimeFormat('de-DE', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: BOOKING_TIME_ZONE
+  }).format(new Date())}`, { size: 9, color: '0.36 0.42 0.39' });
   y -= 20;
   addText(margin, `Gesamtumsatz: ${formatCurrency(totalRevenue)}`, { size: 12, bold: true });
   y -= 16;
@@ -814,7 +860,7 @@ function createRevenuePdf(bookings = []) {
 
   let currentMonth = '';
   sortedBookings.forEach(booking => {
-    const monthLabel = new Date(booking.startTime).toLocaleDateString('de-DE', {
+    const monthLabel = formatBookingDate(booking.startTime, {
       year: 'numeric',
       month: 'long'
     });
@@ -832,7 +878,7 @@ function createRevenuePdf(bookings = []) {
 
     ensureSpace(62);
     const timeRange = `${formatPdfTime(booking.startTime)}-${formatPdfTime(booking.endTime)}`;
-    const bookingDate = new Date(booking.startTime).toLocaleDateString('de-DE');
+    const bookingDate = formatBookingDate(booking.startTime);
     const amount = formatCurrency(booking.price);
     addText(margin, `${bookingDate}  ${timeRange}  ${booking.name || 'Ohne Namen'}`, { size: 10, bold: true });
     addText(pageWidth - 122, amount, { size: 10, bold: true });
@@ -925,7 +971,7 @@ app.post('/api/bookings', async (req, res) => {
       paymentMethod,
       status: paymentMethod === 'cash' ? 'pending' : 'payment_pending',
       paymentVerified: false,
-      createdAt: new Date().toISOString()
+      createdAt: createBookingTimestamp()
     };
     
     // For PayPal, generate payment link
@@ -946,7 +992,7 @@ app.post('/api/bookings', async (req, res) => {
       booking.stripeCheckoutSessionId = stripeSession.id;
       booking.stripePaymentIntentId = getStripePaymentIntentId(stripeSession);
       booking.stripePaymentStatus = stripeSession.payment_status || 'unpaid';
-      booking.stripeSyncedAt = new Date().toISOString();
+      booking.stripeSyncedAt = createBookingTimestamp();
       booking.stripeCheckoutUrl = stripeSession.url;
     }
     
@@ -961,6 +1007,9 @@ app.post('/api/bookings', async (req, res) => {
         boardItems: booking.boardItems,
         boardType: booking.boardType,
         peoplePerBoard: booking.peoplePerBoard,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        duration: booking.duration,
         price: booking.price,
         paymentMethod: booking.paymentMethod,
         status: booking.status,
@@ -1312,7 +1361,7 @@ app.post('/api/bookings/:id/verify', checkAdminSession, async (req, res) => {
     await db.updateBooking(id, {
       status: 'confirmed',
       paymentVerified: true,
-      verifiedAt: new Date().toISOString()
+      verifiedAt: createBookingTimestamp()
     });
     
     const updatedBooking = await db.findBookingById(id);

@@ -587,6 +587,51 @@ select {
     line-height: 1.35;
 }
 
+.payment-options {
+    display: grid;
+    gap: 10px;
+}
+
+.payment-option {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: start;
+    gap: 12px;
+    padding: 13px 14px;
+    border: 1.5px solid rgba(8, 127, 140, 0.18);
+    border-radius: var(--radius);
+    background: #ffffff;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.payment-option:has(input:checked) {
+    border-color: rgba(8, 127, 140, 0.5);
+    background: #f4fbfc;
+}
+
+.payment-option input {
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    accent-color: var(--teal);
+}
+
+.payment-option span {
+    display: grid;
+    gap: 4px;
+}
+
+.payment-option strong {
+    font-weight: 900;
+}
+
+.payment-option small {
+    color: var(--muted);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
 .submit-btn,
 .stripe-button {
     min-height: 54px;

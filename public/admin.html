@@ -1111,7 +1111,22 @@
         }
 
         function parseBookingDate(value) {
-            const date = new Date(value);
+            if (value instanceof Date) {
+                return Number.isNaN(value.getTime()) ? null : value;
+            }
+
+            const rawValue = String(value ?? '').trim();
+            const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+            const date = match
+                ? new Date(
+                    Number(match[1]),
+                    Number(match[2]) - 1,
+                    Number(match[3]),
+                    Number(match[4]),
+                    Number(match[5]),
+                    Number(match[6] || 0)
+                )
+                : new Date(rawValue);
             return Number.isNaN(date.getTime()) ? null : date;
         }
 
@@ -2463,7 +2478,7 @@
             }
 
             const verifiedPill = booking.paymentVerified && booking.verifiedAt
-                ? `<span class="meta-pill meta-pill-verified">Verifiziert ${escapeHtml(new Date(booking.verifiedAt).toLocaleString('de-DE'))}</span>`
+                ? `<span class="meta-pill meta-pill-verified">Verifiziert ${escapeHtml(parseBookingDate(booking.verifiedAt)?.toLocaleString('de-DE') || booking.verifiedAt)}</span>`
                 : '';
 
             return `

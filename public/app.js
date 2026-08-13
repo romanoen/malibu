@@ -26,6 +26,7 @@ const fixedDurationButtons = document.querySelectorAll('[data-duration-minutes]'
 const customDurationButton = document.querySelector('[data-duration-custom]');
 const customTimeField = document.getElementById('customTimeField');
 const pricingList = document.getElementById('pricingList');
+const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
 
 const BOOKING_START_HOUR = 8;
 const BOOKING_END_HOUR = 20;
@@ -49,6 +50,30 @@ const CALENDAR_TIME_ZONE = 'Europe/Berlin';
 let boardItemId = 0;
 let selectedFixedDurationMinutes = null;
 let lastCompletedBooking = null;
+
+function parseLocalDateTime(value) {
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+
+    const rawValue = String(value ?? '').trim();
+    const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/);
+
+    if (match) {
+        const date = new Date(
+            Number(match[1]),
+            Number(match[2]) - 1,
+            Number(match[3]),
+            Number(match[4]),
+            Number(match[5]),
+            Number(match[6] || 0)
+        );
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(rawValue);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
 
 function timeToMinutes(timeString) {
     const [hour, minute] = timeString.split(':').map(Number);
@@ -328,6 +353,19 @@ function resetBookingUi() {
     customTimeField.classList.add('hidden');
     selectedFixedDurationMinutes = null;
     updateDurationButtons();
+    updateSubmitButtonText();
+}
+
+function getSelectedPaymentMethod() {
+    return form.querySelector('input[name="paymentMethod"]:checked')?.value === 'cash' ? 'cash' : 'stripe';
+}
+
+function updateSubmitButtonText() {
+    if (submitBtn.disabled) {
+        return;
+    }
+
+    submitBtn.textContent = getSelectedPaymentMethod() === 'cash' ? 'Reservieren' : 'Reservieren & bezahlen';
 }
 
 startTimeSelect.innerHTML = '<option value="">Bitte wählen</option>' + generateTimeOptions();
@@ -405,6 +443,10 @@ fixedDurationButtons.forEach(button => {
 });
 
 customDurationButton.addEventListener('click', showCustomTimeField);
+
+paymentMethodInputs.forEach(input => {
+    input.addEventListener('change', updateSubmitButtonText);
+});
 
 async function calculatePrice() {
     const bookingDate = bookingDateInput.value;
@@ -509,7 +551,12 @@ async function loadPricingInfo() {
 }
 
 function formatBookingDate(value) {
-    return new Date(value).toLocaleDateString('de-DE', {
+    const date = parseLocalDateTime(value);
+    if (!date) {
+        return 'Ohne Datum';
+    }
+
+    return date.toLocaleDateString('de-DE', {
         weekday: 'long',
         day: '2-digit',
         month: 'long',
@@ -518,7 +565,12 @@ function formatBookingDate(value) {
 }
 
 function formatBookingTime(value) {
-    return new Date(value).toLocaleTimeString('de-DE', {
+    const date = parseLocalDateTime(value);
+    if (!date) {
+        return 'Keine Zeit';
+    }
+
+    return date.toLocaleTimeString('de-DE', {
         hour: '2-digit',
         minute: '2-digit'
     });
@@ -533,6 +585,10 @@ function getPaymentLabel(paymentMethod) {
 }
 
 function getPaymentStatusText(booking = {}) {
+    if (booking.paymentMethod === 'cash' && !isBookingPaymentPaid(booking)) {
+        return 'Barzahlung vor Ort';
+    }
+
     if (booking.paymentVerified || booking.stripePaymentStatus === 'paid' || booking.stripePaymentStatus === 'no_payment_required') {
         return 'Online bezahlt';
     }
@@ -565,11 +621,15 @@ function formatBoardItemsForDisplay(boardItems = []) {
 
 function getBookingShareText(booking) {
     const amount = formatMoney(booking.price);
-    const paymentText = isBookingPaymentPaid(booking)
-        ? `Zahlung: ${amount} online bezahlt.`
-        : (isBookingPaymentProcessing(booking)
-            ? `Zahlung: ${amount} per Lastschrift eingereicht, Bestätigung folgt nach Verarbeitung.`
-            : `Zahlung: ${amount} noch nicht abgeschlossen.`);
+    let paymentText = `Zahlung: ${amount} noch nicht abgeschlossen.`;
+
+    if (booking.paymentMethod === 'cash' && !isBookingPaymentPaid(booking)) {
+        paymentText = `Zahlung: ${amount} bitte passend zur Barzahlung vor Ort mitbringen.`;
+    } else if (isBookingPaymentPaid(booking)) {
+        paymentText = `Zahlung: ${amount} online bezahlt.`;
+    } else if (isBookingPaymentProcessing(booking)) {
+        paymentText = `Zahlung: ${amount} per Lastschrift eingereicht, Bestätigung folgt nach Verarbeitung.`;
+    }
 
     return [
         `${BUSINESS_NAME}`,
@@ -593,7 +653,8 @@ function escapeIcsText(value) {
 }
 
 function formatIcsUtcDate(value) {
-    return new Date(value).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    const date = parseLocalDateTime(value);
+    return (date || new Date()).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 }
 
 function formatIcsLocalDateTime(value) {
@@ -602,7 +663,11 @@ function formatIcsLocalDateTime(value) {
         return `${match[1]}${match[2]}${match[3]}T${match[4]}${match[5]}${match[6] || '00'}`;
     }
 
-    const date = new Date(value);
+    const date = parseLocalDateTime(value);
+    if (!date) {
+        return '';
+    }
+
     return [
         date.getFullYear().toString().padStart(4, '0'),
         (date.getMonth() + 1).toString().padStart(2, '0'),
@@ -701,6 +766,11 @@ function renderBookingOverview(booking) {
             <strong>Zahlung eingegangen:</strong>
             ${escapeHtml(amount)} wurde online bezahlt. Deine Reservierung ist bestätigt.
         `;
+    } else if (booking.paymentMethod === 'cash') {
+        paymentHtml = `
+            <strong>Barzahlung vor Ort:</strong>
+            Bitte bringe ${escapeHtml(amount)} passend mit und zahle vor Ort.
+        `;
     } else if (isBookingPaymentProcessing(booking)) {
         paymentHtml = `
             <strong>Zahlung wird verarbeitet:</strong>
@@ -759,21 +829,26 @@ function renderBookingOverview(booking) {
 function revealFinalSuccess(booking, { checkoutUrl = null } = {}) {
     const isPaid = isBookingPaymentPaid(booking);
     const isProcessing = isBookingPaymentProcessing(booking);
+    const isCash = booking.paymentMethod === 'cash';
     renderBookingOverview(booking);
-    setSuccessActionVisibility({ stripe: Boolean(checkoutUrl) && !isPaid, finalActions: isPaid });
+    setSuccessActionVisibility({ stripe: Boolean(checkoutUrl) && !isPaid && !isCash, finalActions: isPaid || isCash });
 
     if (checkoutUrl) {
         stripeButton.href = checkoutUrl;
     }
 
-    successTitle.textContent = isPaid
+    successTitle.textContent = isCash
+        ? 'Buchung erstellt'
+        : (isPaid
         ? 'Buchung bezahlt'
-        : (isProcessing ? 'Zahlung wird verarbeitet' : 'Zahlung noch offen');
-    successDetails.textContent = isPaid
+        : (isProcessing ? 'Zahlung wird verarbeitet' : 'Zahlung noch offen'));
+    successDetails.textContent = isCash
+        ? 'Deine Reservierung ist angelegt. Unten findest du alle Details zum Merken und Teilen.'
+        : (isPaid
         ? 'Deine Zahlung ist eingegangen. Unten findest du alle Details zum Merken und Teilen.'
         : (isProcessing
             ? 'Deine Zahlungsdaten wurden angenommen. Die Buchung wird automatisch bestätigt, sobald Stripe die Zahlung final meldet.'
-            : 'Deine Reservierung ist angelegt, aber die Zahlung wurde noch nicht bestätigt.');
+            : 'Deine Reservierung ist angelegt, aber die Zahlung wurde noch nicht bestätigt.'));
 
     const shareText = getBookingShareText(booking);
     whatsappShareButton.href = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
@@ -792,8 +867,8 @@ form.addEventListener('submit', async (e) => {
     const boardItems = getBoardItems();
     const boardItemsError = getBoardItemsError(boardItems);
     const privacyCheck = document.getElementById('privacyCheck').checked;
-    const safetyCheck = document.getElementById('safetyCheck').checked;
     const liabilityCheck = document.getElementById('liabilityCheck').checked;
+    const paymentMethod = getSelectedPaymentMethod();
 
     if (boardItemsError) {
         showBoardOccupancyHint(boardItemsError, true);
@@ -801,8 +876,8 @@ form.addEventListener('submit', async (e) => {
         return;
     }
 
-    if (!privacyCheck || !safetyCheck || !liabilityCheck) {
-        showErrorMessage('Bitte akzeptiere Datenschutz, Leitfaden und Haftungsausschluss.');
+    if (!privacyCheck || !liabilityCheck) {
+        showErrorMessage('Bitte akzeptiere Datenschutz und Haftungsausschluss.');
         return;
     }
 
@@ -811,7 +886,7 @@ form.addEventListener('submit', async (e) => {
     dayRateMessage.classList.add('hidden');
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Weiter zu Stripe...';
+    submitBtn.textContent = paymentMethod === 'cash' ? 'Reservierung wird erstellt...' : 'Weiter zur Zahlung...';
 
     try {
         const bookingDate = formData.get('bookingDate');
@@ -829,7 +904,7 @@ form.addEventListener('submit', async (e) => {
             boardItems,
             startTime: `${bookingDate}T${startTime}:00`,
             endTime: `${bookingDate}T${endTime}:00`,
-            paymentMethod: 'stripe'
+            paymentMethod
         };
 
         const response = await fetch('/api/bookings', {
@@ -846,6 +921,11 @@ form.addEventListener('submit', async (e) => {
             throw new Error(data.error || 'Fehler bei der Buchung');
         }
 
+        if (paymentMethod === 'cash') {
+            showSuccessMessage(data.booking);
+            return;
+        }
+
         if (!data.booking?.stripeCheckoutUrl) {
             throw new Error('Stripe Checkout konnte nicht gestartet werden.');
         }
@@ -856,7 +936,7 @@ form.addEventListener('submit', async (e) => {
         showErrorMessage(error.message || 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Reservieren & bezahlen';
+        updateSubmitButtonText();
     }
 });
 
@@ -931,7 +1011,7 @@ async function handleStripeReturn() {
         showErrorMessage(error.message || 'Die Zahlung konnte nicht geprüft werden.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.textContent = 'Reservieren & bezahlen';
+        updateSubmitButtonText();
     }
 }
 
@@ -942,5 +1022,6 @@ function showErrorMessage(message) {
 }
 
 updateDurationButtons();
+updateSubmitButtonText();
 loadPricingInfo();
 handleStripeReturn();
