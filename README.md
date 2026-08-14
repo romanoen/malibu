@@ -4,7 +4,7 @@ Mobile-first booking portal for SUP rentals with Stripe Checkout, an admin dashb
 
 ## Features
 
-- Public booking form with 15-minute time slots from 8:00 to 20:00
+- Public booking form with 15-minute time slots from 8:00 to 22:00
 - Server-side booking validation and price calculation
 - Stripe Checkout payment flow
 - Automatic Stripe payment confirmation through webhooks and admin sync

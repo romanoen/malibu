@@ -29,7 +29,7 @@ const pricingList = document.getElementById('pricingList');
 const paymentMethodInputs = document.querySelectorAll('input[name="paymentMethod"]');
 
 const BOOKING_START_HOUR = 8;
-const BOOKING_END_HOUR = 20;
+const BOOKING_END_HOUR = 22;
 const BOOKING_INTERVAL_MINUTES = 15;
 const MAX_ONLINE_DURATION_MINUTES = (BOOKING_END_HOUR - BOOKING_START_HOUR) * 60;
 const BOARD_OCCUPANCY_RULES = {

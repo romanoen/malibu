@@ -10,8 +10,8 @@ const {
 
 test('allows bookings to end exactly at closing time', () => {
   const result = validateBookingTimeSelection({
-    startTime: '2026-07-01T19:45:00',
-    endTime: '2026-07-01T20:00:00',
+    startTime: '2026-07-01T21:45:00',
+    endTime: '2026-07-01T22:00:00',
     numberOfBoards: 1
   });
 
@@ -25,8 +25,8 @@ test('allows bookings to end exactly at closing time', () => {
 
 test('treats ISO-like booking timestamps as local booking times', () => {
   const result = validateBookingTimeSelection({
-    startTime: '2026-07-01T19:45:00.000Z',
-    endTime: '2026-07-01T20:00:00.000Z',
+    startTime: '2026-07-01T21:45:00.000Z',
+    endTime: '2026-07-01T22:00:00.000Z',
     numberOfBoards: 1
   });
 
@@ -36,12 +36,12 @@ test('treats ISO-like booking timestamps as local booking times', () => {
 
 test('rejects starts at closing time and backwards durations', () => {
   const closingStart = validateBookingTimeSelection({
-    startTime: '2026-07-01T20:00:00',
-    endTime: '2026-07-01T20:15:00',
+    startTime: '2026-07-01T22:00:00',
+    endTime: '2026-07-01T22:15:00',
     numberOfBoards: 1
   });
   assert.equal(closingStart.valid, false);
-  assert.match(closingStart.errors.join(' '), /vor 20:00 Uhr/);
+  assert.match(closingStart.errors.join(' '), /vor 22:00 Uhr/);
 
   const backwards = validateBookingTimeSelection({
     startTime: '2026-07-01T12:00:00',
@@ -193,15 +193,15 @@ test('rejects invalid board occupancy combinations', () => {
 test('rejects durations outside the daily online window', () => {
   const result = validateBookingTimeSelection({
     startTime: '2026-07-01T08:00:00',
-    endTime: '2026-07-01T20:15:00',
+    endTime: '2026-07-01T22:15:00',
     numberOfBoards: 1
   });
 
   assert.equal(result.valid, false);
-  assert.match(result.errors.join(' '), /20:00 Uhr/);
+  assert.match(result.errors.join(' '), /22:00 Uhr/);
 
   assert.throws(
-    () => calculatePrice({ hours: 12, minutes: 15 }, 1),
+    () => calculatePrice({ hours: 14, minutes: 15 }, 1),
     /duration exceeds online booking limit/
   );
 });
