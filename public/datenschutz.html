@@ -132,12 +132,15 @@
             <h1>Datenschutzerklärung</h1>
             <p class="intro">
                 In dieser Datenschutzerklärung informieren wir darüber, welche personenbezogenen Daten bei der Nutzung
-                der Website, bei Reservierungen, Zahlungen und im Admin-Bereich verarbeitet werden.
+                der Website, bei Reservierungen, bei Online-Zahlungen über Stripe, bei Barzahlung und im Admin-Bereich
+                verarbeitet werden.
             </p>
 
             <div class="info-box">
-                <strong>Kurz gesagt:</strong> Wir verarbeiten nur die Daten, die für Reservierung, Zahlung, Betrieb und
-                Verwaltung des SUP-Verleihs erforderlich sind. Es werden keine Analyse- oder Marketing-Cookies eingesetzt.
+                <strong>Kurz gesagt:</strong> Wir verarbeiten nur die Daten, die für Reservierung, Zahlungsabwicklung,
+                Betrieb und Verwaltung des SUP-Verleihs erforderlich sind. Online-Zahlungen laufen über Stripe Checkout;
+                Kartendaten werden nicht auf unserem Server gespeichert. Es werden keine Analyse- oder Marketing-Cookies
+                durch uns eingesetzt.
             </div>
 
             <h2>1. Verantwortlicher</h2>
@@ -190,6 +193,7 @@
                 <li>Buchungsdatum, Startzeit, Endzeit und Dauer</li>
                 <li>Board-Kategorie, Anzahl der Boards und Personen pro Board</li>
                 <li>Preis, Zahlungsart und Zahlungsstatus</li>
+                <li>bei Online-Zahlung technische Stripe-Referenzen wie Checkout-Session-ID, Payment-Intent-ID und Zahlungsstatus</li>
                 <li>technische Buchungs-ID, Erstellungszeitpunkt und interne Verwaltungsnotizen</li>
             </ul>
             <p>
@@ -201,26 +205,40 @@
 
             <h2>5. Online-Zahlungen über Stripe</h2>
             <p>
-                Für Online-Zahlungen nutzen wir Stripe. Nach dem Absenden der Reservierung werden Sie zu einer von
-                Stripe bereitgestellten Zahlungsseite weitergeleitet. Dort können je nach Verfügbarkeit und
-                Stripe-Einstellungen insbesondere Kartenzahlung, PayPal und SEPA-Lastschrift angeboten werden.
+                Für Online-Zahlungen nutzen wir Stripe Checkout. Wenn Sie die Online-Zahlung auswählen, legen wir die
+                Reservierung zunächst in unserem System an und leiten Sie anschließend auf eine von Stripe bereitgestellte
+                Zahlungsseite weiter. Dort können je nach Gerät, Land, Währung, Browser, Stripe-Konfiguration und
+                Verfügbarkeit insbesondere Kartenzahlung, Apple Pay, Google Pay, PayPal oder weitere von Stripe
+                unterstützte Zahlungsmethoden angeboten werden.
             </p>
             <p>
                 Wir übermitteln an Stripe die für die Zahlung erforderlichen Transaktionsdaten, insbesondere Betrag,
-                Währung, Buchungs-ID, Buchungsname, Buchungszeitraum und eine Beschreibung der Reservierung. Die
-                eigentlichen Zahlungsdaten, etwa Karten- oder Kontodaten, werden direkt von Stripe verarbeitet und nicht
-                von uns gespeichert.
+                Währung, Buchungs-ID, Name, Telefonnummer, Buchungszeitraum, Board-Auswahl, Dauer, Preis und eine
+                Beschreibung der Reservierung. Diese Angaben werden unter anderem genutzt, um die Zahlung eindeutig der
+                Buchung zuzuordnen und nach Abschluss der Zahlung den Zahlungsstatus korrekt zu speichern.
+            </p>
+            <p>
+                Die eigentlichen Zahlungsdaten, etwa Kartennummer, Ablaufdatum, Prüfziffer, Wallet-Informationen oder
+                Kontodaten, werden direkt von Stripe bzw. den beteiligten Zahlungsdienstleistern verarbeitet. Diese
+                Zahlungsdaten werden nicht auf unserem Server gespeichert und sind für uns nicht vollständig einsehbar.
             </p>
             <p>
                 Stripe informiert uns über den Zahlungsstatus, zum Beispiel ob eine Zahlung erfolgreich, offen,
-                abgebrochen, fehlgeschlagen oder bei SEPA-Lastschrift noch in Verarbeitung ist. Hierfür nutzen wir
-                Stripe-Checkout-Sessions, Stripe-API-Abfragen und Stripe-Webhooks. Diese Verarbeitung ist erforderlich,
-                um Reservierungen automatisch als bezahlt zu markieren und Buchungen korrekt zu verwalten.
+                abgebrochen, fehlgeschlagen oder noch in Verarbeitung ist. Hierfür nutzen wir Stripe-Checkout-Sessions,
+                Stripe-API-Abfragen und Stripe-Webhooks. In unserer Datenbank speichern wir dazu insbesondere die
+                Stripe-Checkout-Session-ID, gegebenenfalls die Payment-Intent-ID, den Zahlungsstatus und den Zeitpunkt
+                der letzten Synchronisierung. Diese Verarbeitung ist erforderlich, um Reservierungen automatisch als
+                bezahlt zu markieren und Buchungen im Admin-Bereich korrekt zu verwalten.
             </p>
             <p>
-                Stripe kann je nach gewählter Zahlungsart weitere Zahlungsdienstleister, Kartenanbieter, Banken oder
-                Wallet-Anbieter wie PayPal einbinden. Weitere Informationen zur Datenverarbeitung durch Stripe finden
-                Sie im Stripe Privacy Center:
+                Bei der Nutzung von Apple Pay, Google Pay, PayPal oder Kartenzahlung können neben Stripe weitere
+                Zahlungsdienstleister, Wallet-Anbieter, Kartenanbieter, Banken oder Zahlungsnetzwerke beteiligt sein.
+                Stripe kann Daten mit diesen Stellen austauschen, soweit dies zur Zahlungsabwicklung, Authentifizierung,
+                Betrugsprävention, Sicherheit oder Erfüllung gesetzlicher Pflichten erforderlich ist. Welche Anbieter
+                konkret beteiligt sind, hängt von der gewählten Zahlungsmethode ab.
+            </p>
+            <p>
+                Weitere Informationen zur Datenverarbeitung durch Stripe finden Sie im Stripe Privacy Center:
                 <a href="https://stripe.com/legal/privacy-center" target="_blank" rel="noopener noreferrer">https://stripe.com/legal/privacy-center</a>.
             </p>
             <p>
@@ -229,10 +247,25 @@
                 berechtigtes Interesse an einer sicheren, automatisierten und nachvollziehbaren Zahlungsverwaltung.
             </p>
 
-            <h2>6. Erfolgsseite, Kalenderdatei und Teilen-Funktionen</h2>
+            <h2>6. Barzahlung vor Ort</h2>
             <p>
-                Nach erfolgreicher oder eingereichter Zahlung zeigen wir eine Zusammenfassung der Reservierung an. Die
-                Kalenderdatei wird lokal im Browser erzeugt, wenn Sie auf "Zum Kalender hinzufügen" klicken.
+                Wenn Sie Barzahlung auswählen, wird keine Online-Zahlung über Stripe gestartet. Wir speichern die
+                Buchung mit der Zahlungsart "Barzahlung" und dem Zahlungsstatus "offen" bzw. "pending". Nach Zahlung
+                vor Ort kann der Zahlungsstatus im Admin-Bereich manuell bestätigt werden. Dabei werden der geänderte
+                Zahlungsstatus und der Zeitpunkt der Bestätigung gespeichert.
+            </p>
+            <p>
+                Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für die Durchführung der Reservierung und Zahlung vor Ort.
+                Soweit zahlungs- oder buchhaltungsrelevante Angaben gesetzlichen Aufbewahrungspflichten unterliegen,
+                erfolgt die Verarbeitung zusätzlich auf Grundlage von Art. 6 Abs. 1 lit. c DSGVO.
+            </p>
+
+            <h2>7. Erfolgsseite, Kalenderdatei und Teilen-Funktionen</h2>
+            <p>
+                Nach erfolgreicher oder eingereichter Online-Zahlung sowie nach einer Reservierung mit Barzahlung zeigen
+                wir eine Zusammenfassung der Reservierung an. Diese Erfolgsansicht enthält insbesondere Name,
+                Zeitraum, Adresse, Board-Auswahl, Personenanzahl, Betrag und Zahlungsstatus. Die Kalenderdatei wird
+                lokal im Browser erzeugt, wenn Sie auf "Zum Kalender hinzufügen" klicken.
             </p>
             <p>
                 Wenn Sie die Teilen- oder WhatsApp-Funktion nutzen, wird der vorbereitete Buchungstext erst durch Ihre
@@ -240,18 +273,23 @@
                 keine Übermittlung an WhatsApp, Meta oder andere externe Kommunikationsdienste durch uns.
             </p>
 
-            <h2>7. Kontaktaufnahme</h2>
+            <h2>8. Kontaktaufnahme</h2>
             <p>
                 Wenn Sie uns telefonisch oder per E-Mail kontaktieren, verarbeiten wir die von Ihnen mitgeteilten Daten,
                 soweit dies zur Bearbeitung Ihrer Anfrage erforderlich ist. Rechtsgrundlage ist je nach Inhalt der
                 Anfrage Art. 6 Abs. 1 lit. b DSGVO oder Art. 6 Abs. 1 lit. f DSGVO.
             </p>
 
-            <h2>8. Admin-Bereich, Session-Cookie und Push-Benachrichtigungen</h2>
+            <h2>9. Admin-Bereich, Session-Cookie und Push-Benachrichtigungen</h2>
             <p>
                 Der Admin-Bereich ist passwortgeschützt. Für angemeldete Administratoren setzen wir ein technisch
                 erforderliches Session-Cookie mit dem Namen <strong>admin_session</strong>. Dieses Cookie dient der
                 Authentifizierung und dem Schutz der Buchungsdaten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO.
+            </p>
+            <p>
+                Im Admin-Bereich werden Buchungen, Preise, Zahlungsstatus, Umsatzübersichten, Zahlungsbestätigungen,
+                Notizen und Datenbankexporte verarbeitet. Stripe-Zahlungen können dort automatisch mit Stripe
+                abgeglichen werden, damit erfolgreiche Online-Zahlungen als bezahlt angezeigt werden.
             </p>
             <p>
                 Im Admin-Bereich können Push-Benachrichtigungen für Testnachrichten und für fällige Buchungen zum
@@ -263,7 +301,7 @@
                 Buchungen.
             </p>
 
-            <h2>9. Cookies, lokale Speicherung und vergleichbare Technologien</h2>
+            <h2>10. Cookies, lokale Speicherung und vergleichbare Technologien</h2>
             <p>
                 Die öffentliche Reservierungsseite setzt nach aktuellem Stand keine Analyse-, Marketing- oder
                 Werbe-Cookies ein. Technisch erforderliche Speicherungen können eingesetzt werden, soweit dies für den
@@ -272,12 +310,14 @@
                 einschlägig, § 25 Abs. 2 TDDDG.
             </p>
             <p>
-                Auf der Zahlungsseite von Stripe können Stripe und beteiligte Zahlungsdienstleister eigene Cookies oder
-                vergleichbare Technologien einsetzen. Darauf haben wir keinen unmittelbaren Einfluss; es gelten die
-                Hinweise der jeweiligen Anbieter.
+                Auf der von Stripe bereitgestellten Zahlungsseite können Stripe und beteiligte Zahlungsdienstleister
+                eigene Cookies oder vergleichbare Technologien einsetzen, etwa zur Zahlungsabwicklung, Sicherheit,
+                Betrugsprävention, Authentifizierung, Geräteerkennung oder komfortableren Nutzung angebotener
+                Zahlungsmethoden. Darauf haben wir keinen unmittelbaren Einfluss; es gelten die Hinweise der jeweiligen
+                Anbieter.
             </p>
 
-            <h2>10. Hosting, Datenbank und technische Dienstleister</h2>
+            <h2>11. Hosting, Datenbank und technische Dienstleister</h2>
             <p>
                 Die Anwendung wird bei Railway bzw. eingesetzten technischen Dienstleistern betrieben. Dabei können
                 Website-, Datenbank-, Server- und Protokolldaten verarbeitet werden. Railway verarbeitet Daten in diesem
@@ -291,20 +331,20 @@
                 berechtigtes Interesse liegt im sicheren, skalierbaren und zuverlässigen Betrieb der Website.
             </p>
 
-            <h2>11. Empfänger personenbezogener Daten</h2>
+            <h2>12. Empfänger personenbezogener Daten</h2>
             <p>
                 Personenbezogene Daten werden nur weitergegeben, soweit dies für Betrieb, Buchung, Zahlung oder
                 gesetzliche Pflichten erforderlich ist. Empfänger können insbesondere sein:
             </p>
             <ul>
                 <li>Hosting- und Infrastruktur-Dienstleister, insbesondere Railway</li>
-                <li>Zahlungsdienstleister, insbesondere Stripe sowie je nach Zahlungsart PayPal, Banken, Kartenanbieter oder Wallet-Anbieter</li>
+                <li>Zahlungsdienstleister, insbesondere Stripe sowie je nach Zahlungsart PayPal, Banken, Kartenanbieter, Zahlungsnetzwerke oder Wallet-Anbieter wie Apple Pay oder Google Pay</li>
                 <li>Kommunikationsdienste, wenn Sie uns kontaktieren oder Teilen-Funktionen aktiv nutzen</li>
                 <li>Steuerliche oder rechtliche Berater, soweit erforderlich</li>
                 <li>Behörden, Gerichte oder sonstige Stellen, soweit wir gesetzlich dazu verpflichtet sind</li>
             </ul>
 
-            <h2>12. Drittlandübermittlungen</h2>
+            <h2>13. Drittlandübermittlungen</h2>
             <p>
                 Bei der Nutzung von Stripe, Railway und weiteren technischen Dienstleistern kann eine Verarbeitung von
                 Daten außerhalb der Europäischen Union bzw. des Europäischen Wirtschaftsraums nicht ausgeschlossen
@@ -313,7 +353,7 @@
                 Garantien im Sinne der Art. 44 ff. DSGVO.
             </p>
 
-            <h2>13. Speicherdauer</h2>
+            <h2>14. Speicherdauer</h2>
             <p>
                 Wir speichern personenbezogene Daten nur so lange, wie es für die jeweiligen Zwecke erforderlich ist
                 oder gesetzliche Pflichten dies verlangen.
@@ -327,20 +367,23 @@
                 <li><strong>Kontaktanfragen:</strong> so lange, wie dies für Bearbeitung, Nachweis und etwaige Anschlussfragen erforderlich ist.</li>
             </ul>
 
-            <h2>14. Pflicht zur Bereitstellung von Daten</h2>
+            <h2>15. Pflicht zur Bereitstellung von Daten</h2>
             <p>
                 Die Angaben im Buchungsformular sind erforderlich, um eine Reservierung anzulegen und abzuwickeln. Ohne
                 diese Angaben können wir keine Online-Reservierung durchführen. Zahlungsdaten sind erforderlich, wenn
-                Sie die Online-Zahlung nutzen.
+                Sie die Online-Zahlung nutzen. Wenn Sie Barzahlung auswählen, werden keine Online-Zahlungsdaten
+                benötigt; die Buchungs- und Zahlungsstatusdaten bleiben jedoch für die Reservierung erforderlich.
             </p>
 
-            <h2>15. Automatisierte Entscheidungen</h2>
+            <h2>16. Automatisierte Entscheidungen</h2>
             <p>
                 Eine automatisierte Entscheidungsfindung einschließlich Profiling im Sinne von Art. 22 DSGVO findet
-                durch uns nicht statt.
+                durch uns nicht statt. Stripe kann eigene Verfahren zur Betrugsprävention, Sicherheitsprüfung und
+                Zahlungsrisikobewertung einsetzen. Weitere Informationen hierzu stellt Stripe in den eigenen
+                Datenschutzhinweisen bereit.
             </p>
 
-            <h2>16. Ihre Rechte</h2>
+            <h2>17. Ihre Rechte</h2>
             <p>
                 Sie haben im Rahmen der gesetzlichen Voraussetzungen insbesondere folgende Rechte:
             </p>
@@ -357,7 +400,7 @@
                 Zur Ausübung Ihrer Rechte genügt eine formlose Mitteilung an die oben genannten Kontaktdaten.
             </p>
 
-            <h2>17. Beschwerderecht bei einer Aufsichtsbehörde</h2>
+            <h2>18. Beschwerderecht bei einer Aufsichtsbehörde</h2>
             <p>
                 Sie haben nach Art. 77 DSGVO das Recht, sich bei einer Datenschutzaufsichtsbehörde zu beschweren.
                 Zuständig in Baden-Württemberg ist insbesondere:
@@ -371,19 +414,19 @@
                 Website: <a href="https://www.baden-wuerttemberg.datenschutz.de/" target="_blank" rel="noopener noreferrer">https://www.baden-wuerttemberg.datenschutz.de/</a>
             </p>
 
-            <h2>18. Keine Analyse- oder Marketingtools</h2>
+            <h2>19. Keine Analyse- oder Marketingtools</h2>
             <p>
                 Diese Website verwendet nach aktuellem Stand keine Analyse-, Tracking- oder Marketingtools. Es werden
                 insbesondere keine Reichweitenmessung, keine Profilbildung und keine Werbe-Cookies durch uns eingesetzt.
             </p>
 
-            <h2>19. Aktualisierung dieser Datenschutzerklärung</h2>
+            <h2>20. Aktualisierung dieser Datenschutzerklärung</h2>
             <p>
                 Diese Datenschutzerklärung kann angepasst werden, wenn sich rechtliche, technische oder organisatorische
                 Anforderungen ändern, insbesondere bei neuen Zahlungsarten, Dienstleistern oder Funktionen der Website.
             </p>
 
-            <p class="stand">Stand: Juli 2026</p>
+            <p class="stand">Stand: August 2026</p>
             <p class="muted">
                 Hinweis: Diese Datenschutzerklärung dient der transparenten Information. Sie ersetzt keine individuelle
                 Rechtsberatung.
